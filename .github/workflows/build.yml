@@ -30,13 +30,21 @@ jobs:
         pip install -r requirements.txt
         pip install pyinstaller
 
-    - name: Build executable with PyInstaller
-      run: |
-        pyinstaller --onefile --name watcher \
-          --paths=./src/bot \
-          --add-data "src/bot/main.py:bot" \
-          --add-data "src/bot/commands:bot/commands" \
-          ./src/bot/watcher.py
+        - name: Build executable with PyInstaller
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            pyinstaller --onefile --name watcher ^
+              --paths=./src/bot ^
+              --add-data "src/bot/main.py;bot" ^
+              --add-data "src/bot/commands;bot/commands" ^
+              ./src/bot/watcher.py
+          else
+            pyinstaller --onefile --name watcher \
+              --paths=./src/bot \
+              --add-data "src/bot/main.py:bot" \
+              --add-data "src/bot/commands:bot/commands" \
+              ./src/bot/watcher.py
+          fi
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
