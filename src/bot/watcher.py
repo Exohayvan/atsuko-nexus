@@ -4,28 +4,26 @@ import sys
 import tempfile
 import shutil
 
-def extract_main_script():
+def extract_main_path():
     if hasattr(sys, "_MEIPASS"):
-        # Inside PyInstaller bundle
-        return os.path.join(sys._MEIPASS, "bot", "main.py")
-    else:
-        # Running in dev environment
-        return os.path.join(os.path.dirname(__file__), "main.py")
-
-def run_main():
-    main_path = extract_main_script()
-
-    if hasattr(sys, "_MEIPASS"):
-        # Copy bundled main.py to a temporary file so subprocess can run it
+        # We are in a PyInstaller bundle
+        source_path = os.path.join(sys._MEIPASS, "bot", "main.py")
         tmpdir = tempfile.mkdtemp()
-        tmp_main = os.path.join(tmpdir, "main.py")
-        shutil.copyfile(main_path, tmp_main)
-        cmd = [sys.executable, tmp_main]
+        extracted_main = os.path.join(tmpdir, "main.py")
+        shutil.copyfile(source_path, extracted_main)
+        return extracted_main, tmpdir
     else:
-        cmd = [sys.executable, main_path]
-
-    return subprocess.Popen(cmd)
+        # We are running in a dev environment
+        return os.path.join(os.path.dirname(__file__), "main.py"), None
 
 while True:
-    process = run_main()
-    process.wait()
+    main_path, tmpdir = extract_main_path()
+    try:
+        process = subprocess.Popen(["python3", main_path])
+        process.wait()
+    except Exception as e:
+        print(f"Failed to run main.py: {e}")
+    finally:
+        if tmpdir:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+        print("main.py exited, restarting...")

@@ -20,9 +20,10 @@ async def determine_prefix(bot, message):
     return '!'
 
 def get_config():
-    with open('../../../config.json', 'r') as f:
-        config = json.load(f)
-    return config
+    base_path = os.path.dirname(os.path.abspath(__file__))
+    config_path = os.path.join(base_path, "../../../config.json")
+    with open(config_path, 'r') as f:
+        return json.load(f)
 
 bot = commands.Bot(command_prefix=determine_prefix, intents=intents, owner_id=276782057412362241, case_insensitive=True)
 
