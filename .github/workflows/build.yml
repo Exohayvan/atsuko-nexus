@@ -40,6 +40,7 @@ jobs:
           --paths=./src/bot \
           --add-data "src/bot/main.py:bot" \
           --add-data "src/bot/commands:bot/commands" \
+          --add-data "src/bot/helpers:bot/helpers" \
           $HIDDEN_IMPORTS \
           ./src/bot/main.py
 
