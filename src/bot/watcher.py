@@ -19,7 +19,7 @@ def extract_main_path():
 while True:
     main_path, tmpdir = extract_main_path()
     try:
-        process = subprocess.Popen(["python3", main_path])
+        process = subprocess.Popen([sys.executable, main_path])
         process.wait()
     except Exception as e:
         print(f"Failed to run main.py: {e}")
