@@ -32,7 +32,7 @@ jobs:
 
     - name: Build executable with PyInstaller
       run: |
-        pyinstaller --onefile --paths=./src/bot/commands ./src/bot/watcher.py
+        pyinstaller --onefile --paths=./src/bot/commands ./src/bot/
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
