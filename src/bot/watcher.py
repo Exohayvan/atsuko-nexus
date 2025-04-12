@@ -1,14 +1,9 @@
 # watcher.py
+import subprocess
+import os
 
-import time
-import traceback
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 while True:
-    try:
-        import main
-        main.start_bot()
-    except Exception as e:
-        print("Bot crashed:")
-        traceback.print_exc()
-        print("Restarting in 5 seconds...")
-        time.sleep(5)
+    process = subprocess.Popen(["python3", "main.py"])
+    process.wait()
