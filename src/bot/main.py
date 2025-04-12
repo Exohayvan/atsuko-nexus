@@ -67,5 +67,6 @@ async def on_message(message):
 
     await bot.process_commands(message)
 
-config = get_config()
-bot.run(config['bot_token'])
+def start_bot():
+    config = get_config()
+    bot.run(config['bot_token'])
