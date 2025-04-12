@@ -1,4 +1,3 @@
-# watcher.py
 import subprocess
 import os
 import sys
@@ -7,24 +6,23 @@ import shutil
 
 def extract_main_script():
     if hasattr(sys, "_MEIPASS"):
-        # We are inside a PyInstaller onefile bundle
-        bundled_path = os.path.join(sys._MEIPASS, "bot", "main.py")
+        # Inside PyInstaller bundle
+        return os.path.join(sys._MEIPASS, "bot", "main.py")
     else:
-        # Dev environment
-        bundled_path = os.path.join(os.path.dirname(__file__), "main.py")
-    return bundled_path
+        # Running in dev environment
+        return os.path.join(os.path.dirname(__file__), "main.py")
 
 def run_main():
     main_path = extract_main_script()
 
     if hasattr(sys, "_MEIPASS"):
-        # Copy to temp dir so subprocess can read it
+        # Copy bundled main.py to a temporary file so subprocess can run it
         tmpdir = tempfile.mkdtemp()
         tmp_main = os.path.join(tmpdir, "main.py")
         shutil.copyfile(main_path, tmp_main)
-        cmd = ["python3", tmp_main]
+        cmd = [sys.executable, tmp_main]
     else:
-        cmd = ["python3", main_path]
+        cmd = [sys.executable, main_path]
 
     return subprocess.Popen(cmd)
 
