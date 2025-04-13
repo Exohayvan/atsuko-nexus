@@ -8,6 +8,7 @@ from rich.style import Style
 from rich.markup import escape
 from textual.app import App, ComposeResult
 from textual.widgets import Static
+from textual.containers import ScrollableContainer
 from textual.containers import Vertical, VerticalScroll
 from textual.reactive import reactive
 from textual.widget import Widget
@@ -16,9 +17,11 @@ from helpers.clogging import setup_logging
 from helpers.nodeid import get_node_id
 
 # === Config ===
+version = "0.0.3-alpha"
 NODE_ID = get_node_id()
 LOG_FILE = "./runtime.log"
 start_time = datetime.now()
+peers = {}
 
 # === TUI Widgets ===
 class StatusBar(Static):
@@ -30,10 +33,12 @@ class StatusBar(Static):
         uptime_str = str(uptime).split(".")[0]
         self.update(
             f"[b cyan]🆔 Node ID:[/b cyan] {NODE_ID}   "
-            f"[b green]⏱️ Uptime:[/b green] {uptime_str}"
+            f"[b green]⏱️ Uptime:[/b green] {uptime_str}   "
+            f"[b blue]📊 Version:[/b blue] {version}   "
+            f"[b red] 🔴 Peers:[/b red] {len(peers)}"
         )
 
-class LogViewer(Widget):
+class LogViewer(Static):
     lines = reactive([])
 
     def on_mount(self):
@@ -42,30 +47,33 @@ class LogViewer(Widget):
     def refresh_log(self):
         try:
             with open(LOG_FILE, "r", encoding="utf-8") as f:
-                self.lines = f.readlines()[-200:]  # Show more lines
+                self.lines = f.readlines()[-200:]
         except FileNotFoundError:
             self.lines = ["Waiting for runtime.log..."]
 
-    def render(self):
+        self.update(self.render_log())
+
+        # Let the parent scrollable container handle the scroll
+        container = self.app.query_one("#log_viewer").parent
+        if hasattr(container, "scroll_end"):
+            container.scroll_end(animate=False)
+
+    def render_log(self) -> Text:
         rendered = Text()
 
         for line in self.lines:
             line = line.strip()
-
-            # Try to match log line with format: TIMESTAMP:LEVEL:LOGGER: MESSAGE
             match = re.match(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}):(\w+):([^:]+): (.*)", line)
 
             if match:
                 raw_ts, level, logger, message = match.groups()
 
-                # Convert timestamp
                 try:
                     dt = datetime.strptime(raw_ts, "%Y-%m-%d %H:%M:%S,%f")
                     ts_display = dt.strftime("%Y.%m.%d %H:%M:%S")
                 except Exception:
-                    ts_display = raw_ts  # fallback if malformed
+                    ts_display = raw_ts
 
-                # Log level colors
                 level_styles = {
                     "DEBUG": "bright_blue",
                     "INFO": "green",
@@ -75,7 +83,6 @@ class LogViewer(Widget):
                 }
                 level_color = level_styles.get(level.upper(), "white")
 
-                # Render line
                 rendered.append(f"{ts_display}", style="dim")
                 rendered.append(" | ")
                 rendered.append(f"{level}", style=level_color)
@@ -83,9 +90,7 @@ class LogViewer(Widget):
                 rendered.append(f"{logger}", style="cyan")
                 rendered.append(" | ")
                 rendered.append(f"{message}\n", style="white")
-
             else:
-                # Fallback for any non-log lines
                 rendered.append(line + "\n", style="white")
 
         return rendered
@@ -105,7 +110,7 @@ class DashboardApp(App):
             StatusBar(),
             Divider(),
             Static("[b yellow]Live Logs (runtime.log):[/b yellow]"),
-            VerticalScroll(LogViewer())
+            ScrollableContainer(LogViewer(id="log_viewer"))
         )
 
     def on_ready(self):
@@ -118,8 +123,13 @@ class DashboardApp(App):
         logger.debug(f"Node ID: {NODE_ID}")
 
         while True:
-            logger.info("Heartbeat: node still alive.")
-            await asyncio.sleep(10)
+            try:
+                logger.info("Heartbeat: node still alive.")
+                await asyncio.sleep(10)
+            except Exception as e:
+                logger.error(f"Error: {e}")
+                logger.warning("Script restarting in 10 seconds...")
+                await asyncio.sleep(10)
 
 # === Entry Point ===
 if __name__ == "__main__":
