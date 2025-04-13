@@ -1,5 +1,7 @@
 # Atsuko: Nexus
 
+![Build](https://img.shields.io/github/actions/workflow/status/Exohayvan/atsuko-nexus/build.yml?branch=main&style=for-the-badge)
+
 > ⚠️ **ALPHA WARNING**: Atsuko: Nexus is a complete rewrite and currently in **ALPHA**.  
 > It is **not production-ready**, features may be unstable, and breaking changes are frequent.  
 > Use at your own risk while we continue active development.
