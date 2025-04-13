@@ -7,3 +7,4 @@ PyNaCl
 watchdog
 aiohttp
 concurrent-log-handler
+textual
