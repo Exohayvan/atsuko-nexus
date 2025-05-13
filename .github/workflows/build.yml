@@ -49,5 +49,5 @@ jobs:
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: watcher-${{ matrix.os }}
-        path: dist/watcher${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+        name: main-${{ matrix.os }}
+        path: dist/main${{ matrix.os == 'windows-latest' && '.exe' || '' }}
