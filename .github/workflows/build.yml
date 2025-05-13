@@ -1,5 +1,8 @@
 name: Build Bot Executable
 
+permissions:
+  contents: read
+  
 on:
   push:
     branches: ["*"]
