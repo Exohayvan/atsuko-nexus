@@ -21,6 +21,7 @@ setup_logging()
 logger = logging.getLogger("MAIN")
 loggerup = logging.getLogger("UPDATER")
 loggerheart = logging.getLogger("HEARTBEAT")
+logger.debug("Main script Loaded. Logging started...")
 
 # === Hardcoded Configs ===
 CURRENT_VERSION = "0.0.8-alpha"
@@ -29,6 +30,11 @@ NODE_ID = get_node_id()
 LOG_FILE = "./runtime.log"
 start_time = datetime.now()
 peers = {}
+
+# === Get Networkkey
+from helpers.networkkey import get_network_key
+network_key = get_network_key(CURRENT_VERSION)
+logger.debug(f"Network Key: {network_key}")
 
 # === Updater Settings ===
 import platform
@@ -256,6 +262,5 @@ class DashboardApp(App):
 
 # === Entry Point ===
 if __name__ == "__main__":
-    logger.debug("Main script Loaded. Logging started...")
     config = load_or_create_config()
     DashboardApp().run()
