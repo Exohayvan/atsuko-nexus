@@ -112,7 +112,9 @@ async def check_for_update_and_run_updater():
 
     if latest_tag and latest_tag != CURRENT_VERSION:
         loggerup.info(f"New version found: {latest_tag} (current: {CURRENT_VERSION})")
-
+        loggerup.info("Downloading and installing latest version in 5 seconds...")
+        loggerup.info(f"If update fails, please run the updater program. Or download manually at https://github.com/{REPO}/releases/latest/download/atsuko-nexus.exe")
+        await asyncio.sleep(5)
         download_url = f"https://github.com/{REPO}/releases/latest/download/atsuko-nexus.exe"
         updater_path = os.path.join(os.path.dirname(sys.argv[0]), UPDATER_EXE)
         
