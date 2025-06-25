@@ -1,8 +1,5 @@
 name: Build Bot Executable
 
-permissions:
-  contents: read
-  
 on:
   push:
     branches: ["*"]
@@ -40,7 +37,7 @@ jobs:
         HIDDEN_IMPORTS=$(pip freeze | cut -d '=' -f1 | xargs -I{} echo --hidden-import={} | xargs)
         echo "Hidden imports: $HIDDEN_IMPORTS"
   
-        pyinstaller --name main \
+        pyinstaller --onefile --name main \
           --paths=./src/bot \
           --add-data="src/bot/main.py:bot" \
           --add-data="src/bot/commands:bot/commands" \
@@ -52,5 +49,5 @@ jobs:
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: main-${{ matrix.os }}
-        path: dist/main
+        name: watcher-${{ matrix.os }}
+        path: dist/watcher${{ matrix.os == 'windows-latest' && '.exe' || '' }}
