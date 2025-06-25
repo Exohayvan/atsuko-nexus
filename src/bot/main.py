@@ -15,6 +15,7 @@ from textual.reactive import reactive
 
 from helpers.clogging import setup_logging
 from helpers.nodeid import get_node_id
+from helpers.peerconnection import main as p2p
 
 # === Logging Setup ===
 setup_logging()
@@ -198,6 +199,10 @@ class LogViewer(Static):
 
                 if level.upper() not in display_levels:
                     continue
+                # Only allow logger names that are ALL CAPS and contain no symbols
+                if not (logger_name.isupper() and logger_name.isalpha()):
+                    continue
+
 
                 try:
                     dt = datetime.strptime(raw_ts, "%Y-%m-%d %H:%M:%S,%f")
@@ -250,6 +255,7 @@ class DashboardApp(App):
     async def background_task(self):
         logger.debug(f"Working directory: {os.getcwd()}")
         logger.debug(f"Node ID: {NODE_ID}")
+        asyncio.create_task(p2p(network_key))
         while True:
             try:
                 await check_for_update_and_run_updater()
