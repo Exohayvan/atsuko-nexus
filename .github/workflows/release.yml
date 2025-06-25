@@ -52,27 +52,27 @@ jobs:
     # ------------------------------------------------------------
     # Re-package per OS
     # ------------------------------------------------------------
-    - name: 📦 Zip watcher+updater for each OS
+    - name: 📦 Zip main+updater for each OS
       run: |
         set -e
         mkdir -p release_zips
 
         # Windows
-        cp artifacts/binaries-windows-latest/main.exe    watcher.exe
+        cp artifacts/binaries-windows-latest/main.exe    main.exe
         cp artifacts/binaries-windows-latest/updater.exe updater.exe
-        zip -qj release_zips/atsuko-nexus-windows-x64.zip watcher.exe updater.exe
+        zip -qj release_zips/atsuko-nexus-windows-x64.zip main.exe updater.exe
 
         # Linux
-        cp artifacts/binaries-ubuntu-latest/main    watcher
+        cp artifacts/binaries-ubuntu-latest/main    main
         cp artifacts/binaries-ubuntu-latest/updater updater
-        chmod +x watcher updater
-        zip -qj release_zips/atsuko-nexus-linux-x64.zip watcher updater
+        chmod +x main updater
+        zip -qj release_zips/atsuko-nexus-linux-x64.zip main updater
 
         # macOS
-        cp artifacts/binaries-macos-latest/main    watcher
+        cp artifacts/binaries-macos-latest/main    main
         cp artifacts/binaries-macos-latest/updater updater
-        chmod +x watcher updater
-        zip -qj release_zips/atsuko-nexus-macos-x64.zip watcher updater
+        chmod +x main updater
+        zip -qj release_zips/atsuko-nexus-macos-x64.zip main updater
 
     - name: 🔖 Generate changelog from last tag
       id: changelog
