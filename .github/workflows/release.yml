@@ -3,36 +3,37 @@ name: Release
 on:
   workflow_run:
     workflows: ["Build"]
-    types:
-      - completed
+    types: [completed]
 
 permissions:
   contents: write
 
 jobs:
   prepare:
+    if: ${{ github.event.workflow_run.conclusion == 'success' &&
+            github.event.workflow_run.head_branch == 'main' }}
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.extract.outputs.version }}
-      exists: ${{ steps.check.outputs.exists }}
-    steps:
-    - name: 🧾 Checkout repo
-      uses: actions/checkout@v3
+      exists:  ${{ steps.check.outputs.exists }}
 
-    - name: 🔍 Extract CURRENT_VERSION from main.py
-      id: extract
+    steps:
+    - uses: actions/checkout@v3
+
+    - id: extract
+      name: 🔍 Extract CURRENT_VERSION
       run: |
         VERSION=$(grep -oP 'CURRENT_VERSION\s*=\s*"\K[^"]+' src/bot/main.py)
         echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-    - name: 🚦 Check if release already exists
-      id: check
+    - id: check
+      name: 🚦 Check if release already exists
       env:
         GH_TOKEN: ${{ github.token }}
       run: |
         TAG=${{ steps.extract.outputs.version }}
         if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" &>/dev/null; then
-          echo "exists=true" >> $GITHUB_OUTPUT
+          echo "exists=true"  >> $GITHUB_OUTPUT
         else
           echo "exists=false" >> $GITHUB_OUTPUT
         fi
@@ -42,44 +43,49 @@ jobs:
     if: needs.prepare.outputs.exists == 'false'
     runs-on: ubuntu-latest
     steps:
-    - name: 📥 Download all build artifacts
+    - name: 📥 Download build artifacts from build run
       uses: actions/download-artifact@v4
       with:
         pattern: binaries-*
         path: artifacts
+        run-id: ${{ github.event.workflow_run.id }}
 
     - name: 🗃️ Rename and zip each platform
       run: |
         mkdir -p release_zips
 
         # Windows
-        cp artifacts/binaries-windows-latest/main.exe release_zips/watcher-windows.exe
+        cp artifacts/binaries-windows-latest/main.exe    release_zips/watcher-windows.exe
         cp artifacts/binaries-windows-latest/updater.exe release_zips/updater-windows.exe
-        zip -j release_zips/atsuko-nexus-windows-x64.zip release_zips/watcher-windows.exe release_zips/updater-windows.exe
+        zip -j release_zips/atsuko-nexus-windows-x64.zip \
+            release_zips/watcher-windows.exe             \
+            release_zips/updater-windows.exe
 
         # Linux
-        cp artifacts/binaries-ubuntu-latest/main release_zips/watcher-linux
-        cp artifacts/binaries-ubuntu-latest/updater release_zips/updater-linux
+        cp artifacts/binaries-ubuntu-latest/main     release_zips/watcher-linux
+        cp artifacts/binaries-ubuntu-latest/updater  release_zips/updater-linux
         chmod +x release_zips/watcher-linux release_zips/updater-linux
-        zip -j release_zips/atsuko-nexus-linux-x64.zip release_zips/watcher-linux release_zips/updater-linux
+        zip -j release_zips/atsuko-nexus-linux-x64.zip \
+            release_zips/watcher-linux                 \
+            release_zips/updater-linux
 
         # macOS
-        cp artifacts/binaries-macos-latest/main release_zips/watcher-macos
-        cp artifacts/binaries-macos-latest/updater release_zips/updater-macos
+        cp artifacts/binaries-macos-latest/main     release_zips/watcher-macos
+        cp artifacts/binaries-macos-latest/updater  release_zips/updater-macos
         chmod +x release_zips/watcher-macos release_zips/updater-macos
-        zip -j release_zips/atsuko-nexus-macos-x64.zip release_zips/watcher-macos release_zips/updater-macos
+        zip -j release_zips/atsuko-nexus-macos-x64.zip \
+            release_zips/watcher-macos                 \
+            release_zips/updater-macos
 
         ls -lh release_zips
 
     - name: 🚀 Create GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: ${{ needs.prepare.outputs.version }}
-        name: "Atsuko Nexus ${{ needs.prepare.outputs.version }}"
-        body: |
-          Automated release for version ${{ needs.prepare.outputs.version }}.
-        files: |
-          release_zips/*.zip
+        tag_name:  ${{ needs.prepare.outputs.version }}
+        name:      "Atsuko Nexus ${{ needs.prepare.outputs.version }}"
+        body:      "Automated release for version ${{ needs.prepare.outputs.version }}."
+        files:     release_zips/*.zip
 
   skip:
     needs: prepare
