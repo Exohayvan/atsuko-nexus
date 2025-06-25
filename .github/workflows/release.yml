@@ -13,6 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.extract.outputs.version }}
+      exists: ${{ steps.check.outputs.exists }}
     steps:
     - name: 🧾 Checkout repo
       uses: actions/checkout@v3
@@ -20,7 +21,6 @@ jobs:
     - name: 🔍 Extract CURRENT_VERSION
       id: extract
       run: |
-        # adjust path if main.py is elsewhere
         VERSION=$(grep -oP 'CURRENT_VERSION\s*=\s*"\K[^"]+' src/bot/main.py)
         echo "Detected version: $VERSION"
         echo "version=$VERSION" >> $GITHUB_OUTPUT
@@ -39,49 +39,48 @@ jobs:
 
   create:
     needs: prepare
-    if: needs.prepare.outputs.version != '' && needs.prepare.steps.check.outputs.exists == 'false'
+    if: needs.prepare.outputs.exists == 'false'
     runs-on: ubuntu-latest
     steps:
     - name: 📥 Download build artifacts
-      # assumes the build workflow name is "Build Bot Executable + Updater"
       uses: actions/download-artifact@v4
       with:
         pattern: binaries-*
         path: artifacts
 
-    - name: 🗃️  Rename assets for clarity
+    - name: 🗃️ Rename artifacts for release
       run: |
         mkdir -p release_assets
-        # Ubuntu / Linux
-        mv artifacts/binaries-ubuntu-latest/watch* release_assets/watcher-linux
-        mv artifacts/binaries-ubuntu-latest/update* release_assets/updater-linux
-        chmod +x release_assets/watcher-linux release_assets/updater-linux
+
+        # Linux
+        mv artifacts/binaries-ubuntu-latest/watch*  release_assets/watcher-linux || true
+        mv artifacts/binaries-ubuntu-latest/update* release_assets/updater-linux || true
+        chmod +x release_assets/watcher-linux release_assets/updater-linux || true
 
         # macOS
-        mv artifacts/binaries-macos-latest/watch*  release_assets/watcher-macos
-        mv artifacts/binaries-macos-latest/update* release_assets/updater-macos
-        chmod +x release_assets/watcher-macos  release_assets/updater-macos
+        mv artifacts/binaries-macos-latest/watch*  release_assets/watcher-macos || true
+        mv artifacts/binaries-macos-latest/update* release_assets/updater-macos || true
+        chmod +x release_assets/watcher-macos release_assets/updater-macos || true
 
         # Windows
-        mv artifacts/binaries-windows-latest/watch*.exe  release_assets/watcher-windows.exe
-        mv artifacts/binaries-windows-latest/update*.exe release_assets/updater-windows.exe
+        mv artifacts/binaries-windows-latest/watch*.exe  release_assets/watcher-windows.exe || true
+        mv artifacts/binaries-windows-latest/update*.exe release_assets/updater-windows.exe || true
 
-        ls -R release_assets
+        ls -lh release_assets
 
-    - name: 🚀 Create GitHub release
+    - name: 🚀 Create GitHub Release
       uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ needs.prepare.outputs.version }}
-        name: "Atsuko-Nexus ${{ needs.prepare.outputs.version }}"
+        name: "Atsuko Nexus ${{ needs.prepare.outputs.version }}"
+        body: |
+          Automated release for Atsuko Nexus version ${{ needs.prepare.outputs.version }}.
         files: |
           release_assets/*
 
-    - name: ✅ Summary
-      run: echo "Release ${{ needs.prepare.outputs.version }} created with binaries for Windows, macOS and Linux."
-
   skip:
     needs: prepare
-    if: needs.prepare.steps.check.outputs.exists == 'true'
+    if: needs.prepare.outputs.exists == 'true'
     runs-on: ubuntu-latest
     steps:
-      - run: echo "Release ${{ needs.prepare.outputs.version }} already exists – skipping."
+      - run: echo "⚠️ Release ${{ needs.prepare.outputs.version }} already exists — skipping."
