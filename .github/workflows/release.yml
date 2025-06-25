@@ -1,9 +1,6 @@
 name: Create Release from Build Artifacts
 
 on:
-  push:
-    branches:
-      - main
   workflow_run:
     workflows: ["Build Bot Executable + Updater"]
     types:
