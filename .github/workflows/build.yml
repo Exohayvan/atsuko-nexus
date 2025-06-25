@@ -67,5 +67,5 @@ jobs:
       with:
         name: binaries-${{ matrix.os }}
         path: |
-          dist/watcher${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+          dist/main${{ matrix.os == 'windows-latest' && '.exe' || '' }}
           dist/updater${{ matrix.os == 'windows-latest' && '.exe' || '' }}
