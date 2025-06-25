@@ -78,41 +78,54 @@ jobs:
       id: changelog
       run: |
         set -e
-        git fetch --tags
 
-        # Get last tag not equal to current version
-        LATEST_TAG=$(git tag --sort=-creatordate | grep -v "${VERSION}" | head -n1 || echo "")
-        echo "Last tag: $LATEST_TAG"
+        # Ensure full history
+        git fetch --tags --unshallow || true
+        git fetch origin main
 
-        LOG_RANGE=""
-        if [ -n "$LATEST_TAG" ]; then
-          LOG_RANGE="$LATEST_TAG..HEAD"
+        # Last tag that is NOT the current version
+        LAST_TAG=$(git tag --sort=-creatordate | grep -v "^${VERSION}$" | head -n1 || true)
+        echo "Previous tag: ${LAST_TAG:-<none>}"
+
+        RANGE=""
+        if [ -n "$LAST_TAG" ]; then
+          RANGE="$LAST_TAG..HEAD"
         fi
 
-        get_commits() {
-          PREFIX=$1
-          git log $LOG_RANGE --pretty=format:"- %s (%h)" | \
-            grep -Ei "^\[$PREFIX\]" | sed -E "s/^\[$PREFIX\] //I" || echo "N/A"
+        get_list () {
+          KEY="$1"
+          git log $RANGE \
+            --no-merges \
+            --pretty=format:"- %s (%h)" \
+            --grep="^\[${KEY}\]" --regexp-ignore-case |
+          sed -E "s/^\[${KEY}\] //I" || true
         }
 
-        ADDED=$(get_commits "ADD")
-        REMOVED=$(get_commits "REMOVE")
-        FIXED=$(get_commits "FIX")
+        ADDED  =$(get_list "ADD")
+        REMOVED=$(get_list "REMOVE")
+        FIXED  =$(get_list "FIX")
+
+        # fallback to N/A when empty
+        [[ -z "$ADDED"   ]] && ADDED="N/A"
+        [[ -z "$REMOVED" ]] && REMOVED="N/A"
+        [[ -z "$FIXED"   ]] && FIXED="N/A"
 
         {
-          echo "## Changes in $VERSION"
-          echo ""
+          echo "## Changes in ${VERSION}"
+          echo
           echo "**Added:**"
           echo "$ADDED"
-          echo ""
+          echo
           echo "**Removed:**"
           echo "$REMOVED"
-          echo ""
+          echo
           echo "**Fixed:**"
           echo "$FIXED"
         } > release_notes.md
 
+        echo "--- release notes ---"
         cat release_notes.md
+        echo "---------------------"
 
     # ------------------------------------------------------------
     # Create or update release
