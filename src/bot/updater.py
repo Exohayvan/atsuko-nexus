@@ -7,10 +7,12 @@ import platform
 import subprocess
 import zipfile
 
-# === CONFIG ===
 REPO = "Exohayvan/atsuko-nexus"
-script_dir = os.path.dirname(os.path.abspath(__file__))
-MAIN_NAME = "main.exe" if platform.system().lower() == "windows" else "main"
+
+# PyInstaller-compatible path
+main_path = os.path.abspath(sys.argv[0])
+main_dir = os.path.dirname(main_path)
+MAIN_NAME = os.path.basename(main_path)
 
 def get_system_key():
     os_type = platform.system().lower()
@@ -54,22 +56,23 @@ def download_file(url, dest_path):
     with open(dest_path, "wb") as f:
         shutil.copyfileobj(response.raw, f)
 
-def extract_and_replace(zip_path, extract_to_dir):
+def extract_and_replace(zip_path, target_dir):
     with zipfile.ZipFile(zip_path, "r") as zip_ref:
-        zip_ref.extractall(extract_to_dir)
+        zip_ref.extractall(target_dir)
         extracted_names = zip_ref.namelist()
 
-    # Find the correct 'main' file
+    # Find 'main' or 'main.exe'
+    expected_name = "main.exe" if platform.system().lower() == "windows" else "main"
     extracted_file = next(
-        (f for f in extracted_names if os.path.basename(f) == MAIN_NAME and not f.endswith("/")),
+        (f for f in extracted_names if os.path.basename(f) == expected_name and not f.endswith("/")),
         None
     )
 
     if not extracted_file:
-        raise RuntimeError(f"Could not find '{MAIN_NAME}' in the zip.")
+        raise RuntimeError(f"Could not find '{expected_name}' in zip")
 
-    extracted_path = os.path.join(extract_to_dir, extracted_file)
-    target_path = os.path.join(script_dir, MAIN_NAME)
+    extracted_path = os.path.join(target_dir, extracted_file)
+    target_path = os.path.join(target_dir, MAIN_NAME)
 
     print("[Updater] Replacing old binary...")
 
@@ -92,13 +95,13 @@ if __name__ == "__main__":
     try:
         print("[Updater] Starting updater...")
         download_url, zip_filename = get_download_url()
-        zip_path = os.path.join(script_dir, zip_filename)
+        zip_path = os.path.join(main_dir, zip_filename)
 
         print(f"[Updater] Downloading zip: {zip_filename}")
         download_file(download_url, zip_path)
 
         print("[Updater] Extracting and replacing...")
-        new_path = extract_and_replace(zip_path, script_dir)
+        new_path = extract_and_replace(zip_path, main_dir)
 
         print("[Updater] Cleaning up...")
         os.remove(zip_path)
