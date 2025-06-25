@@ -97,8 +97,8 @@ jobs:
           git log $RANGE \
             --no-merges \
             --pretty=format:"- %s (%h)" \
-            --grep="^\[${KEY}\]" --regexp-ignore-case |
-          sed -E "s/^\[${KEY}\] //I" || true
+            --grep="^\[${KEY}\]" --regexp-ignore-case | \
+            sed -E "s/^- \[${KEY}\] /- /I" || true
         }
 
         ADDED=$(get_list "ADD")
