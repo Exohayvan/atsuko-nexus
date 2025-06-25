@@ -23,7 +23,7 @@ loggerup = logging.getLogger("UPDATER")
 loggerheart = logging.getLogger("HEARTBEAT")
 
 # === Hardcoded Configs ===
-CURRENT_VERSION = "0.0.7-alpha"
+CURRENT_VERSION = "0.0.8-alpha"
 REPO = "Exohayvan/atsuko-nexus"
 NODE_ID = get_node_id()
 LOG_FILE = "./runtime.log"
@@ -174,7 +174,6 @@ class LogViewer(Static):
     def render_log(self) -> Text:
         rendered = Text()
 
-        # Load current config (fresh from disk)
         try:
             display_config = load_or_create_config()
             display_levels = display_config["display_levels"]
@@ -192,7 +191,7 @@ class LogViewer(Static):
                 raw_ts, level, logger_name, message = match.groups()
 
                 if level.upper() not in display_levels:
-                    continue  # Skip hidden levels
+                    continue
 
                 try:
                     dt = datetime.strptime(raw_ts, "%Y-%m-%d %H:%M:%S,%f")
