@@ -101,9 +101,9 @@ jobs:
           sed -E "s/^\[${KEY}\] //I" || true
         }
 
-        ADDED  =$(get_list "ADD")
+        ADDED=$(get_list "ADD")
         REMOVED=$(get_list "REMOVE")
-        FIXED  =$(get_list "FIX")
+        FIXED=$(get_list "FIX")
 
         # fallback to N/A when empty
         [[ -z "$ADDED"   ]] && ADDED="N/A"
