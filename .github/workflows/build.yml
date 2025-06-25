@@ -1,4 +1,4 @@
-name: Build Bot Executable + Updater
+name: Build
 
 on:
   push:

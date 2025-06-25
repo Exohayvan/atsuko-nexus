@@ -1,8 +1,8 @@
-name: Create Release from Build Artifacts
+name: Release
 
 on:
   workflow_run:
-    workflows: ["Build Bot Executable + Updater"]
+    workflows: ["Build"]
     types:
       - completed
 
