@@ -40,7 +40,7 @@ jobs:
         HIDDEN_IMPORTS=$(pip freeze | cut -d '=' -f1 | xargs -I{} echo --hidden-import {} | xargs)
         echo "Hidden imports: $HIDDEN_IMPORTS"
 
-        pyinstaller --onefile --name watcher \
+        pyinstaller --onefile --name main \
           --paths=./src/bot \
           --add-data="src/bot/main.py:bot" \
           --add-data="src/bot/commands:bot/commands" \
