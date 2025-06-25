@@ -31,7 +31,8 @@ start_time = datetime.now()
 peers = {}
 
 # === Updater Settings ===
-UPDATER_EXE = "updater.exe"
+import platform
+UPDATER_EXE = "updater.exe" if platform.system() == "Windows" else "updater"
 
 async def get_latest_release_tag():
     api_url = f"https://api.github.com/repos/{REPO}/releases/latest"
