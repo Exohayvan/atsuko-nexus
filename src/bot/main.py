@@ -22,7 +22,7 @@ logger = logging.getLogger("MAIN")
 loggerup = logging.getLogger("UPDATER")
 loggerheart = logging.getLogger("HEARTBEAT")
 
-# === Config ===
+# === Hardcoded Configs ===
 CURRENT_VERSION = "0.0.5-alpha"
 REPO = "Exohayvan/atsuko-nexus"
 NODE_ID = get_node_id()
@@ -33,6 +33,56 @@ peers = {}
 # === Updater Settings ===
 import platform
 UPDATER_EXE = "updater.exe" if platform.system() == "Windows" else "updater"
+
+# === Config Settings ===
+import json
+CONFIG_FILE = os.path.join(os.path.dirname(__file__), "config.json")
+
+# === Load/Create Config ===
+def load_or_create_config():
+    default_config = {
+        "log_level": "INFO"
+    }
+
+    if not os.path.exists(CONFIG_FILE):
+        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+            json.dump(default_config, f, indent=4)
+        return default_config
+    else:
+        try:
+            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                config = json.load(f)
+            # Ensure all expected keys are present (future-proofing)
+            for key in default_config:
+                if key not in config:
+                    config[key] = default_config[key]
+            return config
+        except Exception as e:
+            print(f"Error reading config.json: {e}")
+            return default_config
+
+def load_or_create_config():
+    default_config = {
+        "log_level": "INFO",
+        "display_levels": ["INFO", "WARNING", "ERROR", "CRITICAL"]
+    }
+
+    if not os.path.exists(CONFIG_FILE):
+        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+            json.dump(default_config, f, indent=4)
+        return default_config
+    else:
+        try:
+            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                config = json.load(f)
+            # Fill in missing keys
+            for key in default_config:
+                if key not in config:
+                    config[key] = default_config[key]
+            return config
+        except Exception as e:
+            print(f"Error reading config.json: {e}")
+            return default_config
 
 async def get_latest_release_tag():
     api_url = f"https://api.github.com/repos/{REPO}/releases/latest"
@@ -98,6 +148,7 @@ class StatusBar(Static):
 
 class LogViewer(Static):
     lines = reactive([])
+    logloaded = False
 
     def on_mount(self):
         self.set_interval(0.5, self.refresh_log)
@@ -116,11 +167,27 @@ class LogViewer(Static):
 
     def render_log(self) -> Text:
         rendered = Text()
+
+        # Load current config (fresh from disk)
+        try:
+            display_config = load_or_create_config()
+            display_levels = display_config["display_levels"]
+            if self.logloaded == False:
+                logger.debug(f"Loaded Logs with display_levels: {display_levels}")
+            self.logloaded=True
+        except Exception as e:
+            logger.error(f"Failed to load config for log display: {e}")
+            display_levels = []  # Show nothing if config is broken
+
         for line in self.lines:
             line = line.strip()
             match = re.match(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}):(\w+):([^:]+): (.*)", line)
             if match:
-                raw_ts, level, logger, message = match.groups()
+                raw_ts, level, logger_name, message = match.groups()
+
+                if level.upper() not in display_levels:
+                    continue  # Skip hidden levels
+
                 try:
                     dt = datetime.strptime(raw_ts, "%Y-%m-%d %H:%M:%S,%f")
                     ts_display = dt.strftime("%Y.%m.%d %H:%M:%S")
@@ -140,11 +207,12 @@ class LogViewer(Static):
                 rendered.append(" | ")
                 rendered.append(f"{level}", style=level_color)
                 rendered.append(" | ")
-                rendered.append(f"{logger}", style="cyan")
+                rendered.append(f"{logger_name}", style="cyan")
                 rendered.append(" | ")
                 rendered.append(f"{message}\n", style="white")
             else:
                 rendered.append(line + "\n", style="white")
+
         return rendered
 
 class Divider(Static):
@@ -184,4 +252,5 @@ class DashboardApp(App):
 # === Entry Point ===
 if __name__ == "__main__":
     logger.debug("Main script Loaded. Logging started...")
+    config = load_or_create_config()
     DashboardApp().run()
