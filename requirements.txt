@@ -8,3 +8,4 @@ watchdog
 aiohttp
 concurrent-log-handler
 textual
+kademlia
