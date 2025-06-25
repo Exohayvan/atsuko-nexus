@@ -25,7 +25,7 @@ loggerheart = logging.getLogger("HEARTBEAT")
 logger.debug("Main script Loaded. Logging started...")
 
 # === Hardcoded Configs ===
-CURRENT_VERSION = "0.0.8-alpha"
+CURRENT_VERSION = "0.0.9-alpha"
 REPO = "Exohayvan/atsuko-nexus"
 NODE_ID = get_node_id()
 LOG_FILE = "./runtime.log"
