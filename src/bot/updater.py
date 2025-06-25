@@ -5,13 +5,14 @@ import shutil
 import platform
 import subprocess
 import zipfile
+import glob
 
 # === CONFIG ===
 REPO = "Exohayvan/atsuko-nexus"
-
 SCRIPT_DIR = os.path.dirname(os.path.abspath(sys.argv[0]))
 MAIN_NAME = "main.exe" if platform.system().lower() == "windows" else "main"
 MAIN_PATH = os.path.join(SCRIPT_DIR, MAIN_NAME)
+TEMP_EXTRACT_DIR = os.path.join(SCRIPT_DIR, "_update_tmp")
 
 def get_system_key():
     os_type = platform.system().lower()
@@ -55,30 +56,33 @@ def download_file(url, dest_path):
     with open(dest_path, "wb") as f:
         shutil.copyfileobj(response.raw, f)
 
-def extract_and_replace(zip_path):
+def extract_and_find_main(zip_path):
+    # Clear old temp folder if exists
+    if os.path.exists(TEMP_EXTRACT_DIR):
+        shutil.rmtree(TEMP_EXTRACT_DIR)
+    os.makedirs(TEMP_EXTRACT_DIR, exist_ok=True)
+
     with zipfile.ZipFile(zip_path, "r") as zip_ref:
-        zip_ref.extractall(SCRIPT_DIR)
-        extracted_names = zip_ref.namelist()
+        zip_ref.extractall(TEMP_EXTRACT_DIR)
 
-    expected_name = "main.exe" if platform.system().lower() == "windows" else "main"
-    extracted_file = next(
-        (f for f in extracted_names if os.path.basename(f) == expected_name and not f.endswith("/")),
-        None
-    )
+    expected_file = MAIN_NAME.lower()
 
-    if not extracted_file:
-        raise RuntimeError(f"Could not find '{expected_name}' in the zip")
+    # Search recursively for the file
+    for root, dirs, files in os.walk(TEMP_EXTRACT_DIR):
+        for file in files:
+            if file.lower() == expected_file:
+                return os.path.join(root, file)
 
-    extracted_path = os.path.join(SCRIPT_DIR, extracted_file)
+    raise RuntimeError(f"Could not find '{MAIN_NAME}' inside zip.")
 
+def replace_main(new_main_path):
     if os.path.exists(MAIN_PATH):
         os.remove(MAIN_PATH)
         print("[Updater] Old binary removed.")
 
-    shutil.move(extracted_path, MAIN_PATH)
+    shutil.move(new_main_path, MAIN_PATH)
     os.chmod(MAIN_PATH, 0o755)
     print(f"[Updater] New binary placed: {MAIN_PATH}")
-    return MAIN_PATH
 
 def relaunch(path):
     if platform.system().lower() == "windows":
@@ -99,14 +103,18 @@ if __name__ == "__main__":
         print(f"[Updater] Downloading zip: {zip_filename}")
         download_file(download_url, zip_path)
 
-        print("[Updater] Extracting and replacing main binary...")
-        new_path = extract_and_replace(zip_path)
+        print("[Updater] Extracting zip and locating new main...")
+        new_main_path = extract_and_find_main(zip_path)
+
+        print("[Updater] Replacing main binary...")
+        replace_main(new_main_path)
 
         print("[Updater] Cleaning up...")
         os.remove(zip_path)
+        shutil.rmtree(TEMP_EXTRACT_DIR, ignore_errors=True)
 
         print("[Updater] Relaunching updated main binary...")
-        relaunch(new_path)
+        relaunch(MAIN_PATH)
 
     except Exception as e:
         print(f"[Updater] Error: {e}")
