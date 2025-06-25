@@ -174,3 +174,4 @@ cython_debug/
 .pypirc
 *.lock
 .DS_Store
+src/bot/config.json
