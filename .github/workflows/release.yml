@@ -58,21 +58,21 @@ jobs:
         mkdir -p release_zips
 
         # Windows
-        cp artifacts/binaries-windows-latest/main.exe    watcher-windows.exe
-        cp artifacts/binaries-windows-latest/updater.exe updater-windows.exe
-        zip -qj release_zips/atsuko-nexus-windows-x64.zip watcher-windows.exe updater-windows.exe
+        cp artifacts/binaries-windows-latest/main.exe    watcher.exe
+        cp artifacts/binaries-windows-latest/updater.exe updater.exe
+        zip -qj release_zips/atsuko-nexus-windows-x64.zip watcher.exe updater.exe
 
         # Linux
-        cp artifacts/binaries-ubuntu-latest/main    watcher-linux
-        cp artifacts/binaries-ubuntu-latest/updater updater-linux
-        chmod +x watcher-linux updater-linux
-        zip -qj release_zips/atsuko-nexus-linux-x64.zip watcher-linux updater-linux
+        cp artifacts/binaries-ubuntu-latest/main    watcher
+        cp artifacts/binaries-ubuntu-latest/updater updater
+        chmod +x watcher updater
+        zip -qj release_zips/atsuko-nexus-linux-x64.zip watcher updater
 
         # macOS
-        cp artifacts/binaries-macos-latest/main    watcher-macos
-        cp artifacts/binaries-macos-latest/updater updater-macos
-        chmod +x watcher-macos updater-macos
-        zip -qj release_zips/atsuko-nexus-macos-x64.zip watcher-macos updater-macos
+        cp artifacts/binaries-macos-latest/main    watcher
+        cp artifacts/binaries-macos-latest/updater updater
+        chmod +x watcher updater
+        zip -qj release_zips/atsuko-nexus-macos-x64.zip watcher updater
 
     - name: 🔖 Generate changelog from last tag
       id: changelog
