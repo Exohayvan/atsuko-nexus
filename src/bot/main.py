@@ -36,7 +36,12 @@ UPDATER_EXE = "updater.exe" if platform.system() == "Windows" else "updater"
 
 # === Config Settings ===
 import json
-CONFIG_FILE = os.path.join(os.path.dirname(__file__), "config.json")
+if getattr(sys, 'frozen', False):
+    BASE_DIR = os.path.dirname(sys.executable)
+else:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CONFIG_FILE = os.path.join(BASE_DIR, "config.json")
+
 
 # === Load/Create Config ===
 def load_or_create_config():
@@ -52,7 +57,6 @@ def load_or_create_config():
         try:
             with open(CONFIG_FILE, "r", encoding="utf-8") as f:
                 config = json.load(f)
-            # Ensure all expected keys are present (future-proofing)
             for key in default_config:
                 if key not in config:
                     config[key] = default_config[key]
