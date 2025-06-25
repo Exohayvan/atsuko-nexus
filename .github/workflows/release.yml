@@ -1,4 +1,4 @@
-name: Create Release From Build Artifacts
+name: Create Release from Build Artifacts
 
 on:
   workflow_dispatch:
@@ -18,11 +18,10 @@ jobs:
     - name: 🧾 Checkout repo
       uses: actions/checkout@v3
 
-    - name: 🔍 Extract CURRENT_VERSION
+    - name: 🔍 Extract CURRENT_VERSION from main.py
       id: extract
       run: |
         VERSION=$(grep -oP 'CURRENT_VERSION\s*=\s*"\K[^"]+' src/bot/main.py)
-        echo "Detected version: $VERSION"
         echo "version=$VERSION" >> $GITHUB_OUTPUT
 
     - name: 🚦 Check if release already exists
@@ -32,7 +31,7 @@ jobs:
       run: |
         TAG=${{ steps.extract.outputs.version }}
         if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" &>/dev/null; then
-          echo "exists=true"  >> $GITHUB_OUTPUT
+          echo "exists=true" >> $GITHUB_OUTPUT
         else
           echo "exists=false" >> $GITHUB_OUTPUT
         fi
@@ -42,31 +41,34 @@ jobs:
     if: needs.prepare.outputs.exists == 'false'
     runs-on: ubuntu-latest
     steps:
-    - name: 📥 Download build artifacts
+    - name: 📥 Download all build artifacts
       uses: actions/download-artifact@v4
       with:
         pattern: binaries-*
         path: artifacts
 
-    - name: 🗃️ Rename artifacts for release
+    - name: 🗃️ Rename and zip each platform
       run: |
-        mkdir -p release_assets
-
-        # Linux
-        mv artifacts/binaries-ubuntu-latest/watch*  release_assets/watcher-linux || true
-        mv artifacts/binaries-ubuntu-latest/update* release_assets/updater-linux || true
-        chmod +x release_assets/watcher-linux release_assets/updater-linux || true
-
-        # macOS
-        mv artifacts/binaries-macos-latest/watch*  release_assets/watcher-macos || true
-        mv artifacts/binaries-macos-latest/update* release_assets/updater-macos || true
-        chmod +x release_assets/watcher-macos release_assets/updater-macos || true
+        mkdir -p release_zips
 
         # Windows
-        mv artifacts/binaries-windows-latest/watch*.exe  release_assets/watcher-windows.exe || true
-        mv artifacts/binaries-windows-latest/update*.exe release_assets/updater-windows.exe || true
+        cp artifacts/binaries-windows-latest/main.exe release_zips/watcher-windows.exe
+        cp artifacts/binaries-windows-latest/updater.exe release_zips/updater-windows.exe
+        zip -j release_zips/atsuko-nexus-windows-x64.zip release_zips/watcher-windows.exe release_zips/updater-windows.exe
 
-        ls -lh release_assets
+        # Linux
+        cp artifacts/binaries-ubuntu-latest/main release_zips/watcher-linux
+        cp artifacts/binaries-ubuntu-latest/updater release_zips/updater-linux
+        chmod +x release_zips/watcher-linux release_zips/updater-linux
+        zip -j release_zips/atsuko-nexus-linux-x64.zip release_zips/watcher-linux release_zips/updater-linux
+
+        # macOS
+        cp artifacts/binaries-macos-latest/main release_zips/watcher-macos
+        cp artifacts/binaries-macos-latest/updater release_zips/updater-macos
+        chmod +x release_zips/watcher-macos release_zips/updater-macos
+        zip -j release_zips/atsuko-nexus-macos-x64.zip release_zips/watcher-macos release_zips/updater-macos
+
+        ls -lh release_zips
 
     - name: 🚀 Create GitHub Release
       uses: softprops/action-gh-release@v2
@@ -74,9 +76,9 @@ jobs:
         tag_name: ${{ needs.prepare.outputs.version }}
         name: "Atsuko Nexus ${{ needs.prepare.outputs.version }}"
         body: |
-          Automated release for Atsuko Nexus version ${{ needs.prepare.outputs.version }}.
+          Automated release for version ${{ needs.prepare.outputs.version }}.
         files: |
-          release_assets/*
+          release_zips/*.zip
 
   skip:
     needs: prepare
