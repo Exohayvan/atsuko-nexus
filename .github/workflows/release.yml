@@ -80,29 +80,36 @@ jobs:
         set -e
         git fetch --tags
 
+        # Get last tag not equal to current version
         LATEST_TAG=$(git tag --sort=-creatordate | grep -v "${VERSION}" | head -n1 || echo "")
         echo "Last tag: $LATEST_TAG"
-        if [ -z "$LATEST_TAG" ]; then
-          LOG_RANGE=""
-        else
+
+        LOG_RANGE=""
+        if [ -n "$LATEST_TAG" ]; then
           LOG_RANGE="$LATEST_TAG..HEAD"
         fi
 
-        ADDED=$(git log $LOG_RANGE --grep="add" --pretty=format:"- %s (%h)" || true)
-        REMOVED=$(git log $LOG_RANGE --grep="remove" --pretty=format:"- %s (%h)" || true)
-        FIXED=$(git log $LOG_RANGE --grep="fix" --pretty=format:"- %s (%h)" || true)
+        get_commits() {
+          PREFIX=$1
+          git log $LOG_RANGE --pretty=format:"- %s (%h)" | \
+            grep -Ei "^\[$PREFIX\]" | sed -E "s/^\[$PREFIX\] //I" || echo "N/A"
+        }
+
+        ADDED=$(get_commits "ADD")
+        REMOVED=$(get_commits "REMOVE")
+        FIXED=$(get_commits "FIX")
 
         {
           echo "## Changes in $VERSION"
           echo ""
           echo "**Added:**"
-          echo "${ADDED:-N/A}"
+          echo "$ADDED"
           echo ""
           echo "**Removed:**"
-          echo "${REMOVED:-N/A}"
+          echo "$REMOVED"
           echo ""
           echo "**Fixed:**"
-          echo "${FIXED:-N/A}"
+          echo "$FIXED"
         } > release_notes.md
 
         cat release_notes.md
