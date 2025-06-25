@@ -74,7 +74,38 @@ jobs:
         chmod +x watcher-macos updater-macos
         zip -qj release_zips/atsuko-nexus-macos-x64.zip watcher-macos updater-macos
 
-        ls -lh release_zips
+    - name: 🔖 Generate changelog from last tag
+      id: changelog
+      run: |
+        set -e
+        git fetch --tags
+
+        LATEST_TAG=$(git tag --sort=-creatordate | grep -v "${VERSION}" | head -n1 || echo "")
+        echo "Last tag: $LATEST_TAG"
+        if [ -z "$LATEST_TAG" ]; then
+          LOG_RANGE=""
+        else
+          LOG_RANGE="$LATEST_TAG..HEAD"
+        fi
+
+        ADDED=$(git log $LOG_RANGE --grep="add" --pretty=format:"- %s (%h)" || true)
+        REMOVED=$(git log $LOG_RANGE --grep="remove" --pretty=format:"- %s (%h)" || true)
+        FIXED=$(git log $LOG_RANGE --grep="fix" --pretty=format:"- %s (%h)" || true)
+
+        {
+          echo "## Changes in $VERSION"
+          echo ""
+          echo "**Added:**"
+          echo "${ADDED:-N/A}"
+          echo ""
+          echo "**Removed:**"
+          echo "${REMOVED:-N/A}"
+          echo ""
+          echo "**Fixed:**"
+          echo "${FIXED:-N/A}"
+        } > release_notes.md
+
+        cat release_notes.md
 
     # ------------------------------------------------------------
     # Create or update release
@@ -87,7 +118,6 @@ jobs:
         TAG="$VERSION"
         TITLE="Atsuko Nexus $VERSION"
 
-        # does release already exist?
         if gh release view "$TAG" &>/dev/null; then
           echo "ℹ️  Release $TAG exists – will upload missing assets."
           EXISTING_ASSETS=$(gh release view "$TAG" --json assets -q '.assets[].name')
@@ -104,5 +134,5 @@ jobs:
           echo "🆕 Creating release $TAG"
           gh release create "$TAG" release_zips/* \
             --title "$TITLE" \
-            --notes "Automated release for version $VERSION."
+            --notes-file release_notes.md
         fi
