@@ -20,9 +20,10 @@ from helpers.nodeid import get_node_id
 setup_logging()
 logger = logging.getLogger("MAIN")
 loggerup = logging.getLogger("UPDATER")
+loggerheart = logging.getLogger("HEARTBEAT")
 
 # === Config ===
-CURRENT_VERSION = "0.0.3-alpha"
+CURRENT_VERSION = "0.0.4-alpha"
 REPO = "Exohayvan/atsuko-nexus"
 NODE_ID = get_node_id()
 LOG_FILE = "./runtime.log"
@@ -32,20 +33,29 @@ peers = {}
 # === Updater Settings ===
 UPDATER_EXE = "updater.exe"
 
-def get_latest_release_tag():
+async def get_latest_release_tag():
     api_url = f"https://api.github.com/repos/{REPO}/releases/latest"
     try:
         response = requests.get(api_url, timeout=5)
         if response.status_code == 200:
             return response.json()["tag_name"]
         else:
-            loggerup.warning(f"Failed to fetch release info: {response.status_code}")
+            while response.status_code != 200:
+                response = requests.get(api_url, timeout=5)
+                if response.status_code == 200:
+                    return response.json()["tag_name"]
+                else:
+                    loggerup.warning(f"Failed to fetch release info for {REPO}. Status code: {response.status_code}")
+                    loggerup.info("Rechecking for update in 10 seconds...")
+                    await asyncio.sleep(10)
+            loggerup.warning(f"Failed to fetch release info for {REPO}. Status code: {response.status_code}")
     except Exception as e:
         loggerup.error(f"Error during update check: {e}")
     return None
 
-def check_for_update_and_run_updater():
-    latest_tag = get_latest_release_tag()
+async def check_for_update_and_run_updater():
+    loggerup.info("Checking for latest version...")
+    latest_tag = await get_latest_release_tag()
     loggerup.debug(f"Latest GitHub version: {latest_tag}")
     loggerup.debug(f"Current Local version: {CURRENT_VERSION}")
 
@@ -61,12 +71,9 @@ def check_for_update_and_run_updater():
         try:
             subprocess.Popen([updater_path, sys.argv[0], download_url])
         except FileNotFoundError as e:
-            print(f"❌ Failed to launch updater: {e}")
             loggerup.error(f"Failed to launch updater: {e}")
         except Exception as e:
-            print(f"❌ Unexpected error launching updater: {e}")
             loggerup.error(f"Unexpected error: {e}")
-        
         time.sleep(1)
         sys.exit(0)
     else:
@@ -165,8 +172,9 @@ class DashboardApp(App):
         logger.debug(f"Node ID: {NODE_ID}")
         while True:
             try:
-                logger.info("Heartbeat: node still alive.")
-                await asyncio.sleep(10)
+                await check_for_update_and_run_updater()
+                loggerheart.info("Node still alive.")
+                await asyncio.sleep(30)
             except Exception as e:
                 logger.error(f"Error: {e}")
                 logger.warning("Script restarting in 10 seconds...")
@@ -175,5 +183,4 @@ class DashboardApp(App):
 # === Entry Point ===
 if __name__ == "__main__":
     logger.debug("Main script Loaded. Logging started...")
-    check_for_update_and_run_updater()
     DashboardApp().run()
