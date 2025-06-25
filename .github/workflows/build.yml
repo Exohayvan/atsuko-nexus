@@ -1,4 +1,4 @@
-name: Build Bot Executable
+name: Build Bot Executable + Updater
 
 on:
   push:
@@ -9,45 +9,60 @@ on:
 
 jobs:
   build-matrix:
-    name: Build for ${{ matrix.os }}
+    name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
-    - name: Checkout repo
+    - name: 📥 Checkout repository
       uses: actions/checkout@v3
 
-    - name: Set up Python
+    - name: 🐍 Set up Python 3.11
       uses: actions/setup-python@v4
       with:
-        python-version: '3.11'
+        python-version: "3.11"
 
-    - name: Install dependencies
+    - name: 📦 Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install pyinstaller
 
-    - name: Generate hidden imports and build executable
+    # ─────────────────────────────────────────────────────────────
+    # Build MAIN executable
+    # ─────────────────────────────────────────────────────────────
+    - name: 🛠️  Build main executable
       shell: bash
       run: |
-        echo "Generating hidden imports from requirements..."
-        HIDDEN_IMPORTS=$(pip freeze | cut -d '=' -f1 | xargs -I{} echo --hidden-import={} | xargs)
+        echo "Generating hidden-imports list…"
+        HIDDEN_IMPORTS=$(pip freeze | cut -d '=' -f1 | xargs -I{} echo --hidden-import {} | xargs)
         echo "Hidden imports: $HIDDEN_IMPORTS"
-  
-        pyinstaller --onefile --name main \
+
+        pyinstaller --onefile --name watcher \
           --paths=./src/bot \
           --add-data="src/bot/main.py:bot" \
           --add-data="src/bot/commands:bot/commands" \
           --add-data="src/bot/helpers:bot/helpers" \
           $HIDDEN_IMPORTS \
           ./src/bot/main.py
-  
 
-    - name: Upload artifact
+    # ─────────────────────────────────────────────────────────────
+    # Build UPDATER executable
+    # ─────────────────────────────────────────────────────────────
+    - name: 🛠️  Build updater executable
+      shell: bash
+      run: |
+        pyinstaller --onefile --name updater ./src/bot/updater.py
+
+    # ─────────────────────────────────────────────────────────────
+    # Upload BOTH artifacts
+    # ─────────────────────────────────────────────────────────────
+    - name: ⬆️  Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: watcher-${{ matrix.os }}
-        path: dist/watcher${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+        name: binaries-${{ matrix.os }}
+        path: |
+          dist/watcher${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+          dist/updater${{ matrix.os == 'windows-latest' && '.exe' || '' }}
