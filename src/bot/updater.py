@@ -6,6 +6,7 @@ import platform
 import subprocess
 import zipfile
 import glob
+import sys
 
 # === CONFIG ===
 REPO = "Exohayvan/atsuko-nexus"
