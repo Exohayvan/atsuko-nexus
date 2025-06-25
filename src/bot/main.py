@@ -23,7 +23,7 @@ loggerup = logging.getLogger("UPDATER")
 loggerheart = logging.getLogger("HEARTBEAT")
 
 # === Config ===
-CURRENT_VERSION = "0.0.4-alpha"
+CURRENT_VERSION = "0.0.5-alpha"
 REPO = "Exohayvan/atsuko-nexus"
 NODE_ID = get_node_id()
 LOG_FILE = "./runtime.log"
