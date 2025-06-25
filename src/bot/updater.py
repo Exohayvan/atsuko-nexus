@@ -1,4 +1,3 @@
-import sys
 import os
 import time
 import requests
@@ -7,12 +6,12 @@ import platform
 import subprocess
 import zipfile
 
+# === CONFIG ===
 REPO = "Exohayvan/atsuko-nexus"
 
-# PyInstaller-compatible path
-main_path = os.path.abspath(sys.argv[0])
-main_dir = os.path.dirname(main_path)
-MAIN_NAME = os.path.basename(main_path)
+SCRIPT_DIR = os.path.dirname(os.path.abspath(sys.argv[0]))
+MAIN_NAME = "main.exe" if platform.system().lower() == "windows" else "main"
+MAIN_PATH = os.path.join(SCRIPT_DIR, MAIN_NAME)
 
 def get_system_key():
     os_type = platform.system().lower()
@@ -56,12 +55,11 @@ def download_file(url, dest_path):
     with open(dest_path, "wb") as f:
         shutil.copyfileobj(response.raw, f)
 
-def extract_and_replace(zip_path, target_dir):
+def extract_and_replace(zip_path):
     with zipfile.ZipFile(zip_path, "r") as zip_ref:
-        zip_ref.extractall(target_dir)
+        zip_ref.extractall(SCRIPT_DIR)
         extracted_names = zip_ref.namelist()
 
-    # Find 'main' or 'main.exe'
     expected_name = "main.exe" if platform.system().lower() == "windows" else "main"
     extracted_file = next(
         (f for f in extracted_names if os.path.basename(f) == expected_name and not f.endswith("/")),
@@ -69,21 +67,18 @@ def extract_and_replace(zip_path, target_dir):
     )
 
     if not extracted_file:
-        raise RuntimeError(f"Could not find '{expected_name}' in zip")
+        raise RuntimeError(f"Could not find '{expected_name}' in the zip")
 
-    extracted_path = os.path.join(target_dir, extracted_file)
-    target_path = os.path.join(target_dir, MAIN_NAME)
+    extracted_path = os.path.join(SCRIPT_DIR, extracted_file)
 
-    print("[Updater] Replacing old binary...")
-
-    if os.path.exists(target_path):
-        os.remove(target_path)
+    if os.path.exists(MAIN_PATH):
+        os.remove(MAIN_PATH)
         print("[Updater] Old binary removed.")
 
-    shutil.move(extracted_path, target_path)
-    os.chmod(target_path, 0o755)
-    print(f"[Updater] New binary placed: {target_path}")
-    return target_path
+    shutil.move(extracted_path, MAIN_PATH)
+    os.chmod(MAIN_PATH, 0o755)
+    print(f"[Updater] New binary placed: {MAIN_PATH}")
+    return MAIN_PATH
 
 def relaunch(path):
     if platform.system().lower() == "windows":
@@ -95,18 +90,22 @@ if __name__ == "__main__":
     try:
         print("[Updater] Starting updater...")
         download_url, zip_filename = get_download_url()
-        zip_path = os.path.join(main_dir, zip_filename)
+        zip_path = os.path.join(SCRIPT_DIR, zip_filename)
+
+        print(f"[Updater] Waiting for {MAIN_NAME} to close...")
+        if not wait_for_close(MAIN_PATH):
+            raise RuntimeError("Main binary is still in use. Update aborted.")
 
         print(f"[Updater] Downloading zip: {zip_filename}")
         download_file(download_url, zip_path)
 
-        print("[Updater] Extracting and replacing...")
-        new_path = extract_and_replace(zip_path, main_dir)
+        print("[Updater] Extracting and replacing main binary...")
+        new_path = extract_and_replace(zip_path)
 
         print("[Updater] Cleaning up...")
         os.remove(zip_path)
 
-        print("[Updater] Relaunching updated binary...")
+        print("[Updater] Relaunching updated main binary...")
         relaunch(new_path)
 
     except Exception as e:
