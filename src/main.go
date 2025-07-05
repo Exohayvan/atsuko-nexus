@@ -1,17 +1,17 @@
 package main
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/lipgloss"
+
+	"atsuko-nexus/src/logger"
 )
 
 type model struct {
-	logs     []string
 	viewport viewport.Model
 	ready    bool
 }
@@ -43,17 +43,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tickMsg:
-		wasAtBottom := m.viewport.AtBottom() // ✅ Check before adding content
+		wasAtBottom := m.viewport.AtBottom()
 
-		now := time.Now().Format("15:04:05")
-		m.logs = append(m.logs, fmt.Sprintf("[%s] Node still alive", now))
-		if len(m.logs) > 500 {
-			m.logs = m.logs[1:]
-		}
+		logger.Log("INFO", "heartbeat", "Node still alive")
+		m.viewport.SetContent(strings.Join(logger.GetLogs(), "\n"))
 
-		m.viewport.SetContent(strings.Join(m.logs, "\n"))
-
-		// ✅ Only scroll if user was already at bottom
 		if wasAtBottom {
 			m.viewport.GotoBottom()
 		}
