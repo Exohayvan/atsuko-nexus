@@ -6,6 +6,7 @@ from kademlia.network import Server
 import logging
 from helpers.clogging import setup_logging
 from helpers.nodeid import get_node_id
+from helpers import peerstore
 
 setup_logging()
 logger = logging.getLogger("P2P")
@@ -93,10 +94,11 @@ async def main(NETWORK_KEY):
             for peer in peers:
                 ip = peer.get("ip")
                 port = peer.get("port")
-                if (ip, port) not in seen_peers and ip != local_ip:
-                    seen_peers.add((ip, port))
-                    loggerdht.info(f"Found new peer: {ip}:{port}")
-                    await udp_ping(ip, port)
+                async with peerstore.peers_lock:
+                    if (ip, port) not in peerstore.peers and ip != local_ip:
+                        peerstore.peers.add((ip, port))
+                        loggerdht.info(f"Found new peer: {ip}:{port}")
+                        await udp_ping(ip, port)
 
             # Re-publish own presence
             await dht.set(NETWORK_KEY, encoded_self)

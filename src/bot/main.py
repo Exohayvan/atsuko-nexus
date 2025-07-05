@@ -16,6 +16,8 @@ from textual.reactive import reactive
 from helpers.clogging import setup_logging
 from helpers.nodeid import get_node_id
 from helpers.peerconnection import main as p2p
+from helpers import peerstore
+
 
 # === Logging Setup ===
 setup_logging()
@@ -149,14 +151,16 @@ class StatusBar(Static):
     def on_mount(self):
         self.set_interval(1, self.update_status)
 
-    def update_status(self):
+    async def update_status(self):
         uptime = datetime.now() - start_time
         uptime_str = str(uptime).split(".")[0]
+        async with peerstore.peers_lock:
+            peer_count = len(peerstore.peers)
         self.update(
             f"[b cyan]🆔 Node ID:[/b cyan] {NODE_ID}   "
             f"[b green]⏱️ Uptime:[/b green] {uptime_str}   "
             f"[b blue]📊 Version:[/b blue] {CURRENT_VERSION}   "
-            f"[b red] 🔴 Peers:[/b red] {len(peers)}"
+            f"[b red] 🔴 Peers:[/b red] {peer_count}"
         )
 
 class LogViewer(Static):
@@ -164,7 +168,7 @@ class LogViewer(Static):
     logloaded = False
 
     def on_mount(self):
-        self.set_interval(0.5, self.refresh_log)
+        self.set_interval(0.5, self.refresh_log, pause=False)
 
     def refresh_log(self):
         try:
