@@ -19,6 +19,7 @@ var (
 	styleWarning = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFA500")) // Orange
 
 	styleHeartbeat = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFC0CB")) // Pink
+	styleMain = lipgloss.NewStyle().Foreground(lipgloss.Color("#D8CB00")) //Groovy Lemon Pie
 
 	timestampStyled = lipgloss.NewStyle().Foreground(lipgloss.Color("#676767")) // Dim Grey
 )
@@ -50,6 +51,8 @@ func Log(level string, typ string, message string) {
 	switch upperTyp {
 	case "HEARTBEAT":
 		typStyled = styleHeartbeat.Render(upperTyp)
+	case "MAIN":
+		typStyled = styleMain.Render(upperTyp)
 	default:
 		typStyled = upperTyp
 	}
