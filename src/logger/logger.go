@@ -20,6 +20,7 @@ var (
 
 	styleHeartbeat = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFC0CB")) // Pink
 	styleMain = lipgloss.NewStyle().Foreground(lipgloss.Color("#D8CB00")) //Groovy Lemon Pie
+	styleNodeid = lipgloss.NewStyle().Foreground(lipgloss.Color("#C7F5C1")) //Tea Green
 
 	timestampStyled = lipgloss.NewStyle().Foreground(lipgloss.Color("#676767")) // Dim Grey
 )
@@ -53,6 +54,8 @@ func Log(level string, typ string, message string) {
 		typStyled = styleHeartbeat.Render(upperTyp)
 	case "MAIN":
 		typStyled = styleMain.Render(upperTyp)
+	case "NODEID":
+		typStyled = styleNodeid.Render(upperTyp)
 	default:
 		typStyled = upperTyp
 	}
