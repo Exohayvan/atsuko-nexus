@@ -13,11 +13,14 @@ var (
 	logs []string
 	mu   sync.Mutex
 
-	styleInfo  = lipgloss.NewStyle().Foreground(lipgloss.Color("#00D8A7")) // teal
-	styleDebug = lipgloss.NewStyle().Foreground(lipgloss.Color("#7D7DFF")) // purple
-	styleError = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF5F5F")) // red
-	styleWarning = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFA500")) // orang
+	styleInfo  = lipgloss.NewStyle().Foreground(lipgloss.Color("#00D8A7")) // Pristine Oceanic
+	styleDebug = lipgloss.NewStyle().Foreground(lipgloss.Color("#7D7DFF")) // Periwinkle
+	styleError = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF5F5F")) // Fusion Red
+	styleWarning = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFA500")) // Orange
 
+	styleHeartbeat = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFC0CB")) // Pink
+
+	timestampStyled = lipgloss.NewStyle().Foreground(lipgloss.Color("#676767")) // Dim Grey
 )
 
 // Log logs a formatted entry: time | LEVEL | TYPE | message
@@ -41,8 +44,19 @@ func Log(level string, typ string, message string) {
 		levelStyled = upperLevel
 	}
 
-	timestamp := time.Now().Format("15:04:05")
-	entry := fmt.Sprintf("%s | %-6s | %-8s | %s", timestamp, levelStyled, strings.ToUpper(typ), message)
+	var typStyled string
+	upperTyp := strings.ToUpper(typ)
+
+	switch upperTyp {
+	case "HEARTBEAT":
+		typStyled = styleHeartbeat.Render(upperTyp)
+	default:
+		typStyled = upperTyp
+	}
+
+
+	timeStyled := timestampStyled.Render(time.Now().Format("15:04:05"))
+	entry := fmt.Sprintf("%s | %-6s | %-8s | %s", timeStyled, levelStyled, typStyled, message)
 
 	logs = append(logs, entry)
 
