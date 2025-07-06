@@ -106,7 +106,7 @@ func (m model) View() string {
 }
 
 func main() {
-	logger.Log("DEBUG", "MAIN", "Script started with ID: "+nodeID)
+	logger.Log("INFO", "MAIN", "Script started with ID: "+nodeID)
 	p := tea.NewProgram(model{}, tea.WithAltScreen(), tea.WithMouseCellMotion())
 	if _, err := p.Run(); err != nil {
 		panic(err)
