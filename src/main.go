@@ -3,6 +3,7 @@ package main
 import (
 	"strings"
 	"time"
+    "fmt"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -11,12 +12,22 @@ import (
 	"atsuko-nexus/src/logger"
 )
 
+var (
+	version   = "v0.1.0-alpha"
+	startTime = time.Now()
+	nodeID    = "N/A"
+)
+
 type model struct {
 	viewport viewport.Model
 	ready    bool
 }
 
 type tickMsg struct{}
+
+func getUptime() string {
+	return time.Since(startTime).Round(time.Second).String()
+}
 
 func tick() tea.Cmd {
 	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
@@ -67,11 +78,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-	header := lipgloss.NewStyle().Bold(true).Render("💠 Atsuko Nexus - Headless Mode (press 'q' to quit)")
-	return header + "\n" + m.viewport.View()
+	header := lipgloss.NewStyle().
+		Bold(true).
+		Render(fmt.Sprintf("💠 Atsuko Nexus %s — Uptime: %s", version, getUptime()))
+
+	status := lipgloss.NewStyle().
+		Faint(true).
+		Render(fmt.Sprintf("Node ID: %s", nodeID))
+
+	return header + "\n" + status + "\n" + m.viewport.View()
 }
 
 func main() {
+    logger.Log("DEBUG", "MAIN", "Script started")
 	p := tea.NewProgram(model{}, tea.WithAltScreen(), tea.WithMouseCellMotion())
 	if err := p.Start(); err != nil {
 		panic(err)
