@@ -15,10 +15,10 @@ import (
 
 	"atsuko-nexus/src/logger"
 	"atsuko-nexus/src/settings"
+	"atsuko-nexus/src/version"
 )
 
 var (
-	version       = "v0.1.0-alpha"
 	startTime     = time.Now()
 	nodeID        string
 	peers         = "0"
@@ -179,7 +179,7 @@ func (m model) View() string {
 
 	status := lipgloss.NewStyle().
 		Faint(true).
-		Render(fmt.Sprintf("Version: %s | Uptime: %s | Node ID: %s | Peers: %s", version, getUptime(), nodeID, peers))
+		Render(fmt.Sprintf("Version: %s | Uptime: %s | Node ID: %s | Peers: %s", version.Current, getUptime(), nodeID, peers))
 
 	help := lipgloss.NewStyle().
 		Italic(true).
