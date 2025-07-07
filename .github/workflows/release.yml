@@ -2,7 +2,7 @@ name: Create Release
 
 on:
   workflow_run:
-    workflows: ["build"]
+    workflows: ["Build"]
     types: [completed]
 
 permissions:
@@ -19,84 +19,42 @@ jobs:
     - name: 🧾 Checkout repo
       uses: actions/checkout@v4
 
-    - name: 🔍 Extract CURRENT_VERSION
+    - name: 🔍 Extract VERSION from Go source
       id: extract
       run: |
-        VERSION=$(grep -oP 'CURRENT_VERSION\s*=\s*"\K[^"]+' src/bot/main.py)
+        VERSION=$(grep -oP 'Current\s*=\s*"\K[^"]+' src/version/version.go)
         echo "VERSION=$VERSION" | tee -a $GITHUB_ENV
 
-    # ------------------------------------------------------------
-    # Download artifacts for this run with the GitHub REST API
-    # ------------------------------------------------------------
-    - name: 🔽 Fetch artifact list & download
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        set -e
-        RUN_ID=${{ github.event.workflow_run.id }}
-        API="https://api.github.com/repos/${{ github.repository }}/actions/runs/$RUN_ID/artifacts"
-        mkdir artifacts
+    - name: 🔽 Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
 
-        curl -sSL -H "Authorization: token $GH_TOKEN" "$API" | \
-          jq -r '.artifacts[] | select(.name|startswith("binaries-")) | [.name,.archive_download_url] | @tsv' |
-        while IFS=$'\t' read -r NAME URL; do
-          echo "⏬  $NAME"
-          curl -sSL -H "Authorization: token $GH_TOKEN" -H "Accept: application/vnd.github+json" \
-               "$URL" -o "$NAME.zip"
-          unzip -q "$NAME.zip" -d "artifacts/$NAME"
-        done
-
-        echo "Downloaded structure:"
-        find artifacts -maxdepth 2 -type f
-
-    # ------------------------------------------------------------
-    # Re-package per OS
-    # ------------------------------------------------------------
-    - name: 📦 Zip main+updater for each OS
+    - name: 📦 Zip binaries per OS/Arch
       run: |
         set -e
         mkdir -p release_zips
 
-        # Windows
-        cp artifacts/binaries-windows-latest/main.exe    main.exe
-        cp artifacts/binaries-windows-latest/updater.exe updater.exe
-        zip -qj release_zips/atsuko-nexus-windows-x64.zip main.exe updater.exe
-
-        # Linux
-        cp artifacts/binaries-ubuntu-latest/main    main
-        cp artifacts/binaries-ubuntu-latest/updater updater
-        chmod +x main updater
-        zip -qj release_zips/atsuko-nexus-linux-x64.zip main updater
-
-        # macOS
-        cp artifacts/binaries-macos-latest/main    main
-        cp artifacts/binaries-macos-latest/updater updater
-        chmod +x main updater
-        zip -qj release_zips/atsuko-nexus-macos-x64.zip main updater
+        for dir in artifacts/atsuko-*; do
+          name=$(basename "$dir")
+          output="release_zips/${name}.zip"
+          zip -qj "$output" "$dir"/*
+          echo "Zipped $name → $output"
+        done
 
     - name: 🔖 Generate changelog from last tag
       id: changelog
       run: |
-        set -e
-
-        # Ensure full history
         git fetch --tags --unshallow || true
         git fetch origin main
 
-        # Last tag that is NOT the current version
         LAST_TAG=$(git tag --sort=-creatordate | grep -v "^${VERSION}$" | head -n1 || true)
-        echo "Previous tag: ${LAST_TAG:-<none>}"
-
         RANGE=""
-        if [ -n "$LAST_TAG" ]; then
-          RANGE="$LAST_TAG..HEAD"
-        fi
+        [ -n "$LAST_TAG" ] && RANGE="$LAST_TAG..HEAD"
 
         get_list () {
           KEY="$1"
-          git log $RANGE \
-            --no-merges \
-            --pretty=format:"- %s (%h)" \
+          git log $RANGE --no-merges --pretty=format:"- %s (%h)" \
             --grep="^\[${KEY}\]" --regexp-ignore-case | \
             sed -E "s/^- \[${KEY}\] /- /I" || true
         }
@@ -105,7 +63,6 @@ jobs:
         REMOVED=$(get_list "REMOVE")
         FIXED=$(get_list "FIX")
 
-        # fallback to N/A when empty
         [[ -z "$ADDED"   ]] && ADDED="N/A"
         [[ -z "$REMOVED" ]] && REMOVED="N/A"
         [[ -z "$FIXED"   ]] && FIXED="N/A"
@@ -123,14 +80,7 @@ jobs:
           echo "$FIXED"
         } > release_notes.md
 
-        echo "--- release notes ---"
-        cat release_notes.md
-        echo "---------------------"
-
-    # ------------------------------------------------------------
-    # Create or update release
-    # ------------------------------------------------------------
-    - name: 🚀 Create / update GitHub release
+    - name: 🚀 Create or update GitHub Release
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
@@ -139,12 +89,12 @@ jobs:
         TITLE="Atsuko Nexus $VERSION"
 
         if gh release view "$TAG" &>/dev/null; then
-          echo "ℹ️  Release $TAG exists – will upload missing assets."
+          echo "ℹ️  Release $TAG exists – uploading missing zips."
           EXISTING_ASSETS=$(gh release view "$TAG" --json assets -q '.assets[].name')
-          for ZIP in release_zips/*; do
+          for ZIP in release_zips/*.zip; do
             NAME=$(basename "$ZIP")
             if echo "$EXISTING_ASSETS" | grep -qx "$NAME"; then
-              echo "✔️  Asset $NAME already present."
+              echo "✔️  $NAME already uploaded"
             else
               echo "➕ Uploading $NAME"
               gh release upload "$TAG" "$ZIP" --clobber
@@ -152,7 +102,7 @@ jobs:
           done
         else
           echo "🆕 Creating release $TAG"
-          gh release create "$TAG" release_zips/* \
+          gh release create "$TAG" release_zips/*.zip \
             --title "$TITLE" \
             --notes-file release_notes.md
         fi
