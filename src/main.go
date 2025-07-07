@@ -11,12 +11,14 @@ import (
 
 	"atsuko-nexus/src/logger"
 	"atsuko-nexus/src/nodeid"
+    "atsuko-nexus/src/settings"
 )
 
 var (
 	version   = "v0.1.0-alpha"
 	startTime = time.Now()
 	nodeID    = nodeid.GetNodeID()
+    peers = "0"
 )
 
 type model struct {
@@ -32,15 +34,33 @@ func getUptime() string {
 }
 
 func tick() tea.Cmd {
-	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
-		return tickMsg{}
-	})
+    refreshSec := settings.Get("ui.panel_refresh_time")
+    refreshDur := time.Second // default fallback
+
+    if sec, ok := refreshSec.(int); ok && sec > 0 {
+        refreshDur = time.Duration(sec) * time.Second
+    } else if fsec, ok := refreshSec.(float64); ok && fsec > 0 {
+        refreshDur = time.Duration(fsec) * time.Second
+    }
+
+    return tea.Tick(refreshDur, func(t time.Time) tea.Msg {
+        return tickMsg{}
+    })
 }
 
 func heartbeatTick() tea.Cmd {
-	return tea.Tick(120*time.Second, func(t time.Time) tea.Msg {
-		return heartbeatMsg{}
-	})
+    interval := settings.Get("metrics.heartbeat_interval")
+    intervalDur := 120 * time.Second // default fallback
+
+    if sec, ok := interval.(int); ok && sec > 0 {
+        intervalDur = time.Duration(sec) * time.Second
+    } else if fsec, ok := interval.(float64); ok && fsec > 0 {
+        intervalDur = time.Duration(fsec) * time.Second
+    }
+
+    return tea.Tick(intervalDur, func(t time.Time) tea.Msg {
+        return heartbeatMsg{}
+    })
 }
 
 func (m model) Init() tea.Cmd {
@@ -91,11 +111,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) View() string {
 	header := lipgloss.NewStyle().
 		Bold(true).
-		Render("💠 Atsuko Nexus - Headless Mode")
+		Render("💠 Atsuko Nexus 💠")
 
 	status := lipgloss.NewStyle().
 		Faint(true).
-		Render(fmt.Sprintf("Version: %s | Uptime: %s | Node ID: %s", version, getUptime(), nodeID))
+		Render(fmt.Sprintf("Version: %s | Uptime: %s | Node ID: %s | Peers: %s", version, getUptime(), nodeID, peers))
 
 	help := lipgloss.NewStyle().
 		Italic(true).
