@@ -7,6 +7,7 @@ require (
 	github.com/charmbracelet/bubbletea v1.3.5
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/nbd-wtf/go-nostr v0.51.12
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
