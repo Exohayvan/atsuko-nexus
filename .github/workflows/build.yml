@@ -46,7 +46,7 @@ jobs:
             output="$output.exe"
           fi
 
-          go build -v -o ./build/$output ./src/main
+          go build -v -o ./build/$output ./src/main.go
 
       - name: ⬆️ Upload binary
         uses: actions/upload-artifact@v4
