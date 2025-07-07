@@ -6,6 +6,7 @@ import (
     "sync"
     "time"
 	"os"
+	"path/filepath"
 
 	"gopkg.in/yaml.v3"
     "github.com/charmbracelet/lipgloss"
@@ -36,24 +37,30 @@ var logLevels = map[string]bool{
 }
 
 func init() {
-	raw, err := os.ReadFile("./settings.yaml")
-	if err != nil {
-		// Fallback to defaults if file unreadable
-		return
-	}
+    exePath, err := os.Executable()
+    if err != nil {
+        return
+    }
+    exeDir := filepath.Dir(exePath)
+    configFile := filepath.Join(exeDir, "settings.yaml")
 
-	var parsed map[string]interface{}
-	if err := yaml.Unmarshal(raw, &parsed); err != nil {
-		return
-	}
+    raw, err := os.ReadFile(configFile)
+    if err != nil {
+        return // Fail silently and stick to defaults
+    }
 
-	if loggerConfig, ok := parsed["logger"].(map[string]interface{}); ok {
-		for level := range logLevels {
-			if val, ok := loggerConfig[level].(bool); ok {
-				logLevels[level] = val
-			}
-		}
-	}
+    var parsed map[string]interface{}
+    if err := yaml.Unmarshal(raw, &parsed); err != nil {
+        return
+    }
+
+    if loggerConfig, ok := parsed["logger"].(map[string]interface{}); ok {
+        for level := range logLevels {
+            if val, ok := loggerConfig[level].(bool); ok {
+                logLevels[level] = val
+            }
+        }
+    }
 }
 
 func Log(level string, typ string, message string) {

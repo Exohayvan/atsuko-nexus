@@ -3,6 +3,7 @@ package settings
 import (
 	"os"
 	"strings"
+	"path/filepath"
 
 	"atsuko-nexus/src/logger"
 	"gopkg.in/yaml.v3"
@@ -10,42 +11,52 @@ import (
 
 var configMap map[string]interface{}
 
-const configFile = "./settings.yaml"
+var configFile string
 
 func init() {
-	// Check existence
-	_, err := os.Stat(configFile)
-	if os.IsNotExist(err) {
-		logger.Log("WARNING", "settings", "settings.yaml not found. Creating default config.")
-		writeDefault()
-	}
+    exePath, err := os.Executable()
+    if err != nil {
+        panic("Failed to get executable path: " + err.Error())
+    }
+    exeDir := filepath.Dir(exePath)
+    configFile = filepath.Join(exeDir, "settings.yaml")
 
-	// Load and parse file
-	raw, err := os.ReadFile(configFile)
-	if err != nil {
-		logger.Log("ERROR", "settings", "Failed to read settings.yaml: "+err.Error())
-		writeDefault()
-		raw = []byte(defaultYAML)
-	}
+    loadSettings()
+}
 
-	err = yaml.Unmarshal(raw, &configMap)
-	if err != nil {
-		logger.Log("ERROR", "settings", "settings.yaml is not valid YAML. Overwriting with default.")
-		writeDefault()
-		raw = []byte(defaultYAML)
-		yaml.Unmarshal(raw, &configMap)
-	}
+func loadSettings() {
+    // Check existence
+    _, err := os.Stat(configFile)
+    if os.IsNotExist(err) {
+        logger.Log("WARNING", "settings", "settings.yaml not found. Creating default config.")
+        writeDefault()
+    }
 
-	// Validate config keys
-	var defaultMap map[string]interface{}
-	yaml.Unmarshal([]byte(defaultYAML), &defaultMap)
-	if !validateKeys(defaultMap, configMap) {
-		logger.Log("WARNING", "settings", "settings.yaml missing keys. Replacing with default.")
-		writeDefault()
-		yaml.Unmarshal([]byte(defaultYAML), &configMap)
-	}
+    // Load and parse file
+    raw, err := os.ReadFile(configFile)
+    if err != nil {
+        logger.Log("ERROR", "settings", "Failed to read settings.yaml: "+err.Error())
+        writeDefault()
+        raw = []byte(defaultYAML)
+    }
 
-	logger.Log("INFO", "settings", "settings.yaml loaded successfully.")
+    err = yaml.Unmarshal(raw, &configMap)
+    if err != nil {
+        logger.Log("ERROR", "settings", "settings.yaml is not valid YAML. Overwriting with default.")
+        writeDefault()
+        raw = []byte(defaultYAML)
+        yaml.Unmarshal(raw, &configMap)
+    }
+
+    var defaultMap map[string]interface{}
+    yaml.Unmarshal([]byte(defaultYAML), &defaultMap)
+    if !validateKeys(defaultMap, configMap) {
+        logger.Log("WARNING", "settings", "settings.yaml missing keys. Replacing with default.")
+        writeDefault()
+        yaml.Unmarshal([]byte(defaultYAML), &configMap)
+    }
+
+    logger.Log("INFO", "settings", "settings.yaml loaded successfully.")
 }
 
 // Get returns a setting value by dot-separated key like "logger.debug"
