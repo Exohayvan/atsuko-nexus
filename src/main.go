@@ -9,6 +9,10 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/lipgloss"
 
+    "github.com/shirou/gopsutil/v3/cpu"
+    "github.com/shirou/gopsutil/v3/mem"
+    "github.com/shirou/gopsutil/v3/net"
+
 	"atsuko-nexus/src/logger"
 	"atsuko-nexus/src/nodeid"
     "atsuko-nexus/src/settings"
@@ -19,6 +23,9 @@ var (
 	startTime = time.Now()
 	nodeID    = nodeid.GetNodeID()
     peers = "0"
+    lastBytesSent uint64
+    lastBytesRecv uint64
+    lastNetTime time.Time
 )
 
 type model struct {
@@ -27,10 +34,23 @@ type model struct {
 }
 
 type tickMsg struct{}
-type heartbeatMsg struct{}
+type heartbeatMsg struct {}
 
 func getUptime() string {
 	return time.Since(startTime).Round(time.Second).String()
+}
+
+func formatBytes(b uint64) string {
+    const unit = 1024
+    if b < unit {
+        return fmt.Sprintf("%d B", b)
+    }
+    div, exp := int64(unit), 0
+    for n := b / unit; n >= unit; n /= unit {
+        div *= unit
+        exp++
+    }
+    return fmt.Sprintf("%.1f %cB", float64(b)/float64(div), "KMGTPE"[exp])
 }
 
 func tick() tea.Cmd {
@@ -92,9 +112,62 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, tick()
 
-	case heartbeatMsg:
-		logger.Log("INFO", "heartbeat", "Node still alive")
-		return m, heartbeatTick()
+case heartbeatMsg:
+    // Default message
+    logMsg := "Node still alive"
+
+    // Check if metrics are enabled
+    if settings.Get("metrics.enable_metrics") == true {
+        parts := []string{}
+
+        // CPU usage
+        if settings.Get("metrics.cpu_monitoring") == true {
+            if usage, _ := cpu.Percent(0, false); len(usage) > 0 {
+                parts = append(parts, fmt.Sprintf("CPU: %.1f%%", usage[0]))
+            }
+        }
+
+        // RAM usage
+        if settings.Get("metrics.ram_monitoring") == true {
+            if vmStat, _ := mem.VirtualMemory(); vmStat != nil {
+                parts = append(parts, fmt.Sprintf("RAM: %.1f%% (%s/%s)",
+                    vmStat.UsedPercent,
+                    formatBytes(vmStat.Used),
+                    formatBytes(vmStat.Total),
+                ))
+            }
+        }
+
+        // Network usage
+        if settings.Get("metrics.net_traffic_monitoring") == true {
+            if ioStat, _ := net.IOCounters(false); len(ioStat) > 0 {
+                now := time.Now()
+                elapsed := now.Sub(lastNetTime).Seconds()
+
+                deltaSent := float64(ioStat[0].BytesSent - lastBytesSent)
+                deltaRecv := float64(ioStat[0].BytesRecv - lastBytesRecv)
+
+                upRate := deltaSent / elapsed
+                downRate := deltaRecv / elapsed
+
+                lastBytesSent = ioStat[0].BytesSent
+                lastBytesRecv = ioStat[0].BytesRecv
+                lastNetTime = now
+
+                parts = append(parts, fmt.Sprintf("Net: ↑ %s/s ↓ %s/s",
+                    formatBytes(uint64(upRate)),
+                    formatBytes(uint64(downRate)),
+                ))
+            }
+        }
+
+        if len(parts) > 0 {
+            logMsg = strings.Join(parts, " | ")
+        }
+    }
+
+    logger.Log("INFO", "heartbeat", logMsg)
+    return m, heartbeatTick()
 
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -126,9 +199,15 @@ func (m model) View() string {
 }
 
 func main() {
-	logger.Log("INFO", "MAIN", "Script started with ID: "+nodeID)
-	p := tea.NewProgram(model{}, tea.WithAltScreen(), tea.WithMouseCellMotion())
-	if _, err := p.Run(); err != nil {
-		panic(err)
-	}
+    lastNetTime = time.Now()
+    if counters, _ := net.IOCounters(false); len(counters) > 0 {
+        lastBytesSent = counters[0].BytesSent
+        lastBytesRecv = counters[0].BytesRecv
+    }
+
+    logger.Log("INFO", "MAIN", "Script started with ID: "+nodeID)
+    p := tea.NewProgram(model{}, tea.WithAltScreen(), tea.WithMouseCellMotion())
+    if _, err := p.Run(); err != nil {
+        panic(err)
+    }
 }
