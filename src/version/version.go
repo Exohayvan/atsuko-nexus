@@ -1,6 +1,6 @@
 package version
 
-var Current = "v0.1.0-alpha"
+var Current = "v1.0.0-alpha"
 
 func Get() string {
 	return Current
