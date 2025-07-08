@@ -36,7 +36,7 @@
 
 ### About Atsuko: Nexus
 
-**Atsuko: Nexus** is a full rewrite of the original Atsuko Discord bot — redesigned for **resilience**, **extensibility**, and **future-proofing**. Built with Python and powered by a new task-queue & P2P-inspired backend, the Nexus version focuses on **modular architecture**, **distributed stability**, and **scalable features**.
+**Atsuko: Nexus** is a full rewrite of the original Atsuko Discord bot — redesigned for **resilience**, **extensibility**, and **future-proofing**. Built with Go and powered by a new task-queue & P2P-inspired backend, the Nexus version focuses on **modular architecture**, **distributed stability**, and **scalable features**.
 
 - Dynamic cog loading for effortless feature expansion  
 - Custom help interface  
@@ -56,7 +56,7 @@ Atsuko's new architecture welcomes collaboration! Feel free to fork, contribute,
 ## Acknowledgments
 
 - Inspired by the community
-- Powered by Python
+- Powered by Go
 - Contributions from developers and users like you
 
 ---
