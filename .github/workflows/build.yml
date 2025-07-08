@@ -11,61 +11,45 @@ permissions:
   contents: read
 
 jobs:
-  build-matrix:
-    name: Build on ${{ matrix.os }}
+  build:
+    name: Build on ${{ matrix.os }} (${{ matrix.arch }})
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
+        arch: [amd64, arm64]
 
     steps:
-    - name: 📥 Checkout repository
-      uses: actions/checkout@v3
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v3
 
-    - name: 🐍 Set up Python 3.11
-      uses: actions/setup-python@v4
-      with:
-        python-version: "3.11"
+      - name: 🧰 Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
 
-    - name: 📦 Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pyinstaller
+      - name: 🛠️ Set up env for ${{ matrix.os }} ${{ matrix.arch }}
+        shell: bash
+        run: |
+          echo "GOARCH=${{ matrix.arch }}" >> $GITHUB_ENV
+          case "${{ matrix.os }}" in
+            ubuntu-latest) echo "GOOS=linux" >> $GITHUB_ENV ;;
+            windows-latest) echo "GOOS=windows" >> $GITHUB_ENV ;;
+            macos-latest) echo "GOOS=darwin" >> $GITHUB_ENV ;;
+          esac
 
-    # ─────────────────────────────────────────────────────────────
-    # Build MAIN executable
-    # ─────────────────────────────────────────────────────────────
-    - name: 🛠️  Build main executable
-      shell: bash
-      run: |
-        echo "Generating hidden-imports list…"
-        HIDDEN_IMPORTS=$(pip freeze | cut -d '=' -f1 | xargs -I{} echo --hidden-import {} | xargs)
-        echo "Hidden imports: $HIDDEN_IMPORTS"
+      - name: 🔨 Build binary
+        shell: bash
+        run: |
+          output="atsuko-${{ env.GOOS }}-${{ env.GOARCH }}"
+          if [ "${{ env.GOOS }}" = "windows" ]; then
+            output="$output.exe"
+          fi
 
-        pyinstaller --onefile --name main \
-          --paths=./src/bot \
-          --add-data="src/bot/main.py:bot" \
-          --add-data="src/bot/commands:bot/commands" \
-          --add-data="src/bot/helpers:bot/helpers" \
-          $HIDDEN_IMPORTS \
-          ./src/bot/main.py
+          go build -v -o ./build/$output ./src/main.go
 
-    # ─────────────────────────────────────────────────────────────
-    # Build UPDATER executable
-    # ─────────────────────────────────────────────────────────────
-    - name: 🛠️  Build updater executable
-      shell: bash
-      run: |
-        pyinstaller --onefile --name updater ./src/bot/updater.py
-
-    # ─────────────────────────────────────────────────────────────
-    # Upload BOTH artifacts
-    # ─────────────────────────────────────────────────────────────
-    - name: ⬆️  Upload artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: binaries-${{ matrix.os }}
-        path: |
-          dist/main${{ matrix.os == 'windows-latest' && '.exe' || '' }}
-          dist/updater${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+      - name: ⬆️ Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: atsuko-${{ env.GOOS }}-${{ env.GOARCH }}
+          path: ./build/*
