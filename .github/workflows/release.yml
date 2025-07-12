@@ -7,6 +7,8 @@ on:
 
 permissions:
   contents: write
+  actions: read
+  id-token: write
 
 jobs:
   release:
@@ -25,9 +27,10 @@ jobs:
         VERSION=$(grep -oP 'Current\s*=\s*"\K[^"]+' src/version/version.go)
         echo "VERSION=$VERSION" | tee -a $GITHUB_ENV
 
-    - name: 🔽 Download all artifacts
-      uses: actions/download-artifact@v4
+    - name: 🔽 Download artifacts from previous workflow
+      uses: dawidd6/action-download-artifact@v3
       with:
+        run_id: ${{ github.event.workflow_run.id }}
         path: artifacts
 
     - name: 🔖 Generate changelog from last tag
