@@ -46,6 +46,8 @@ jobs:
             output="$output.exe"
           fi
 
+          echo File name: $output
+
           go build -v -o ./build/$output ./src/main.go
 
       - name: ⬆️ Upload binary
