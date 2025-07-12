@@ -38,20 +38,27 @@ jobs:
             macos-latest) echo "GOOS=darwin" >> $GITHUB_ENV ;;
           esac
 
+      - name: 📦 Define output filename
+        shell: bash
+        run: |
+          case "${{ matrix.os }}" in
+            ubuntu-latest) echo "GOOS=linux" >> $GITHUB_ENV ;;
+            windows-latest) echo "GOOS=windows" >> $GITHUB_ENV ;;
+            macos-latest) echo "GOOS=darwin" >> $GITHUB_ENV ;;
+          esac
+          echo "GOARCH=${{ matrix.arch }}" >> $GITHUB_ENV
+          filename="atsuko-${{ matrix.os == 'windows-latest' && 'windows' || (matrix.os == 'macos-latest' && 'darwin' || 'linux') }}-${{ matrix.arch }}"
+          [[ "${{ matrix.os }}" == "windows-latest" ]] && filename="$filename.exe"
+          echo "OUTPUT_FILENAME=$filename" >> $GITHUB_ENV
+
       - name: 🔨 Build binary
         shell: bash
         run: |
-          output="atsuko-${{ env.GOOS }}-${{ env.GOARCH }}"
-          if [ "${{ env.GOOS }}" = "windows" ]; then
-            output="$output.exe"
-          fi
-
-          echo File name: $output
-
-          go build -v -o ./build/$output ./src/main.go
+          echo File name: $OUTPUT_FILENAME
+          go build -v -o ./build/$OUTPUT_FILENAME ./src/main.go
 
       - name: ⬆️ Upload binary
         uses: actions/upload-artifact@v4
         with:
-          name: atsuko-${{ env.GOOS }}-${{ env.GOARCH }}
-          path: ./build/*
+          name: ${{ env.OUTPUT_FILENAME }}
+          path: ./build/${{ env.OUTPUT_FILENAME }}
