@@ -30,18 +30,6 @@ jobs:
       with:
         path: artifacts
 
-    - name: 📦 Zip binaries per OS/Arch
-      run: |
-        set -e
-        mkdir -p release_zips
-
-        for dir in artifacts/atsuko-*; do
-          name=$(basename "$dir")
-          output="release_zips/${name}.zip"
-          zip -qj "$output" "$dir"/*
-          echo "Zipped $name → $output"
-        done
-
     - name: 🔖 Generate changelog from last tag
       id: changelog
       run: |
@@ -88,21 +76,28 @@ jobs:
         TAG="$VERSION"
         TITLE="Atsuko Nexus $VERSION"
 
+        echo "📦 Collecting binaries..."
+        mkdir -p release_binaries
+        for dir in artifacts/*; do
+          [ -d "$dir" ] || continue
+          cp "$dir"/* release_binaries/
+        done
+
         if gh release view "$TAG" &>/dev/null; then
-          echo "ℹ️  Release $TAG exists – uploading missing zips."
+          echo "ℹ️  Release $TAG exists – uploading missing binaries."
           EXISTING_ASSETS=$(gh release view "$TAG" --json assets -q '.assets[].name')
-          for ZIP in release_zips/*.zip; do
-            NAME=$(basename "$ZIP")
+          for FILE in release_binaries/*; do
+            NAME=$(basename "$FILE")
             if echo "$EXISTING_ASSETS" | grep -qx "$NAME"; then
               echo "✔️  $NAME already uploaded"
             else
               echo "➕ Uploading $NAME"
-              gh release upload "$TAG" "$ZIP" --clobber
+              gh release upload "$TAG" "$FILE" --clobber
             fi
           done
         else
           echo "🆕 Creating release $TAG"
-          gh release create "$TAG" release_zips/*.zip \
+          gh release create "$TAG" release_binaries/* \
             --title "$TITLE" \
             --notes-file release_notes.md
         fi
