@@ -51,11 +51,17 @@ jobs:
           [[ "${{ matrix.os }}" == "windows-latest" ]] && filename="$filename.exe"
           echo "OUTPUT_FILENAME=$filename" >> $GITHUB_ENV
 
-      - name: 🔨 Build binary
-        shell: bash
-        run: |
-          echo File name: $OUTPUT_FILENAME
-          go build -v -o ./build/$OUTPUT_FILENAME ./src/main.go
+    - name: 🔨 Build binary
+      shell: bash
+      run: |
+        echo "🔧 Building $OUTPUT_FILENAME for $GOOS/$GOARCH"
+        mkdir -p build
+
+        CGO_ENABLED=0 go build -v -o ./build/$OUTPUT_FILENAME ./src/main.go
+
+        if [ "$GOOS" != "windows" ]; then
+          chmod +x ./build/$OUTPUT_FILENAME
+        fi
 
       - name: ⬆️ Upload binary
         uses: actions/upload-artifact@v4
