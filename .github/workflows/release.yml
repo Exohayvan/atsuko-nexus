@@ -27,11 +27,26 @@ jobs:
         VERSION=$(grep -oP 'Current\s*=\s*"\K[^"]+' src/version/version.go)
         echo "VERSION=$VERSION" | tee -a $GITHUB_ENV
 
-    - name: 🔽 Download artifacts from previous workflow
-      uses: dawidd6/action-download-artifact@v6
-      with:
-        run_id: ${{ github.event.workflow_run.id }}
-        path: artifacts
+    - name: 🔽 Find and download latest Build artifacts
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        echo "🔍 Searching for latest successful 'Build' workflow on 'main'..."
+        RUN_ID=$(gh run list \
+          --workflow="Build" \
+          --branch="main" \
+          --event=push \
+          --json databaseId,status,conclusion \
+          --limit 10 \
+          -q '[.[] | select(.status=="completed" and .conclusion=="success")][0].databaseId')
+
+        if [ -z "$RUN_ID" ]; then
+          echo "❌ Could not find a successful Build run on 'main'"
+          exit 1
+        fi
+
+        echo "✅ Found successful run ID: $RUN_ID"
+        gh run download "$RUN_ID" --dir artifacts
 
     - name: 🔖 Generate changelog from last tag
       id: changelog
