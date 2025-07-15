@@ -28,40 +28,28 @@ jobs:
         with:
           go-version: "1.22"
 
-      - name: 🛠️ Set up env for ${{ matrix.os }} ${{ matrix.arch }}
-        shell: bash
-        run: |
-          echo "GOARCH=${{ matrix.arch }}" >> $GITHUB_ENV
-          case "${{ matrix.os }}" in
-            ubuntu-latest) echo "GOOS=linux" >> $GITHUB_ENV ;;
-            windows-latest) echo "GOOS=windows" >> $GITHUB_ENV ;;
-            macos-latest) echo "GOOS=darwin" >> $GITHUB_ENV ;;
-          esac
-
-      - name: 📦 Define output filename
-        shell: bash
-        run: |
-          case "${{ matrix.os }}" in
-            ubuntu-latest) echo "GOOS=linux" >> $GITHUB_ENV ;;
-            windows-latest) echo "GOOS=windows" >> $GITHUB_ENV ;;
-            macos-latest) echo "GOOS=darwin" >> $GITHUB_ENV ;;
-          esac
-          echo "GOARCH=${{ matrix.arch }}" >> $GITHUB_ENV
-          filename="atsuko-${{ matrix.os == 'windows-latest' && 'windows' || (matrix.os == 'macos-latest' && 'darwin' || 'linux') }}-${{ matrix.arch }}"
-          [[ "${{ matrix.os }}" == "windows-latest" ]] && filename="$filename.exe"
-          echo "OUTPUT_FILENAME=$filename" >> $GITHUB_ENV
-
       - name: 🔨 Build binary
         shell: bash
         run: |
-          echo "🔧 Building $OUTPUT_FILENAME for $GOOS/$GOARCH"
+          case "${{ matrix.os }}" in
+            ubuntu-latest) GOOS=linux ;;
+            windows-latest) GOOS=windows ;;
+            macos-latest) GOOS=darwin ;;
+          esac
+
+          GOARCH="${{ matrix.arch }}"
+
+          FILENAME="atsuko-${GOOS}-${GOARCH}"
+          [ "$GOOS" = "windows" ] && FILENAME="${FILENAME}.exe"
+
+          echo "GOOS=$GOOS" >> $GITHUB_ENV
+          echo "GOARCH=$GOARCH" >> $GITHUB_ENV
+          echo "OUTPUT_FILENAME=$FILENAME" >> $GITHUB_ENV
+
+          echo "🔧 Building $FILENAME for $GOOS/$GOARCH"
           mkdir -p build
 
-          CGO_ENABLED=0 go build -v -o ./build/$OUTPUT_FILENAME ./src/main.go
-
-          if [ "$GOOS" != "windows" ]; then
-            chmod +x ./build/$OUTPUT_FILENAME
-          fi
+          CGO_ENABLED=0 GOOS=$GOOS GOARCH=$GOARCH go build -v -o "./build/$FILENAME" ./src/main.go
 
       - name: ⬆️ Upload binary
         uses: actions/upload-artifact@v4
