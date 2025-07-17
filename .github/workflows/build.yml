@@ -67,12 +67,18 @@ jobs:
         shell: pwsh
         run: |
           $zipName = "atsuko-$env:GOOS-$env:GOARCH.zip"
-          $sourceFile = "build\$env:OUTPUT_FILENAME"
+          $binary = "build\$env:OUTPUT_FILENAME"
+          $tempDir = "temp-zip"
           $zipPath = "artifacts\$zipName"
-          Add-Type -A 'System.IO.Compression.FileSystem'
-          $zip = [System.IO.Compression.ZipFile]::Open($zipPath, 'Create')
-          $zip.CreateEntryFromFile($sourceFile, [System.IO.Path]::GetFileName($sourceFile))
-          $zip.Dispose()
+
+          New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
+          Copy-Item $binary "$tempDir\" -Force
+
+          Add-Type -AssemblyName 'System.IO.Compression.FileSystem'
+          [System.IO.Compression.ZipFile]::CreateFromDirectory($tempDir, $zipPath)
+
+          Remove-Item -Recurse -Force $tempDir
+
           echo "ZIPPED_FILENAME=$zipName" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: ⬆️ Upload zipped binary
