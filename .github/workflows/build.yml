@@ -28,24 +28,54 @@ jobs:
         with:
           go-version: "1.22"
 
-      - name: 📦 Zip binary
+      - name: 🔨 Build binary
         shell: bash
+        run: |
+          case "${{ matrix.os }}" in
+            ubuntu-latest) GOOS=linux ;;
+            windows-latest) GOOS=windows ;;
+            macos-latest) GOOS=darwin ;;
+          esac
+
+          GOARCH="${{ matrix.arch }}"
+          EXT=""
+          [ "$GOOS" = "windows" ] && EXT=".exe"
+
+          FILENAME="atsuko-${GOOS}-${GOARCH}${EXT}"
+
+          echo "GOOS=$GOOS" >> $GITHUB_ENV
+          echo "GOARCH=$GOARCH" >> $GITHUB_ENV
+          echo "OUTPUT_FILENAME=$FILENAME" >> $GITHUB_ENV
+
+          echo "🔧 Building $FILENAME for $GOOS/$GOARCH"
+          mkdir -p build artifacts
+
+          CGO_ENABLED=0 GOOS=$GOOS GOARCH=$GOARCH go build -v -o "./build/$FILENAME" ./src/main.go
+
+          chmod +x "./build/$FILENAME"
+
+      - name: 📦 Zip binary (Linux/macOS)
         if: matrix.os != 'windows-latest'
+        shell: bash
         run: |
           ZIPFILE="atsuko-${GOOS}-${GOARCH}.zip"
-          zip -j "artifacts/$ZIPFILE" "./build/$FILENAME"
+          zip -j "artifacts/$ZIPFILE" "build/$OUTPUT_FILENAME"
           echo "ZIPPED_FILENAME=$ZIPFILE" >> $GITHUB_ENV
 
       - name: 📦 Zip binary (Windows)
-        shell: pwsh
         if: matrix.os == 'windows-latest'
+        shell: pwsh
         run: |
-          $zipfile = "artifacts/atsuko-${env:GOOS}-${env:GOARCH}.zip"
+          $zipName = "atsuko-$env:GOOS-$env:GOARCH.zip"
+          $sourceFile = "build\$env:OUTPUT_FILENAME"
+          $zipPath = "artifacts\$zipName"
           Add-Type -A 'System.IO.Compression.FileSystem'
-          [System.IO.Compression.ZipFile]::CreateFromDirectory("build", $zipfile)
-          echo "ZIPPED_FILENAME=atsuko-${env:GOOS}-${env:GOARCH}.zip" >> $env:GITHUB_ENV
+          $zip = [System.IO.Compression.ZipFile]::Open($zipPath, 'Create')
+          $zip.CreateEntryFromFile($sourceFile, [System.IO.Path]::GetFileName($sourceFile))
+          $zip.Dispose()
+          echo "ZIPPED_FILENAME=$zipName" | Out-File -FilePath $env:GITHUB_ENV -Append
 
-      - name: 📦 Upload zipped binary
+      - name: ⬆️ Upload zipped binary
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.ZIPPED_FILENAME }}
