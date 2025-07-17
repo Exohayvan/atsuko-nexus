@@ -92,7 +92,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          for file in artifacts/*; do
+          for file in $(find artifacts -type f); do
             name=$(basename "$file")
             echo "Uploading $name..."
             curl \
