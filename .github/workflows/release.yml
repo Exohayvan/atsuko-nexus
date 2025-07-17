@@ -18,7 +18,7 @@ jobs:
       - name: 🔍 Extract version
         id: version
         run: |
-          VERSION=$(grep -oP 'Version\s*=\s*"\K[^"]+' src/version/version.go)
+          VERSION=$(grep -oP 'Current\s*=\s*"\K[^"]+' src/version/version.go)
           echo "VERSION=$VERSION" | tee -a $GITHUB_ENV
 
       - name: 🔽 Download all artifacts from Build workflow
