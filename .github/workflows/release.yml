@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: 🧾 Checkout repo
+    - name: 🧾 Checkout repository
       uses: actions/checkout@v4
 
     - name: 🔍 Extract VERSION from Go source
@@ -27,11 +27,10 @@ jobs:
         VERSION=$(grep -oP 'Current\s*=\s*"\K[^"]+' src/version/version.go)
         echo "VERSION=$VERSION" | tee -a $GITHUB_ENV
 
-    - name: 🔽 Find and download latest Build artifacts
+    - name: 🔽 Download latest Build artifacts
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        echo "🔍 Searching for latest successful 'Build' workflow on 'main'..."
         RUN_ID=$(gh run list \
           --workflow="Build" \
           --branch="main" \
@@ -47,6 +46,16 @@ jobs:
 
         echo "✅ Found successful run ID: $RUN_ID"
         gh run download "$RUN_ID" --dir artifacts
+
+    - name: 📦 Compress each artifact into separate .zip files
+      run: |
+        for file in artifacts/*; do
+          [ -f "$file" ] || continue
+          base_name=$(basename "$file")
+          echo "Compressing $base_name"
+          zip -j "artifacts/${base_name%.*}.zip" "$file"
+          rm -f "$file"
+        done
 
     - name: 🔖 Generate changelog from last tag
       id: changelog
@@ -93,18 +102,12 @@ jobs:
         set -e
         TAG="$VERSION"
         TITLE="Atsuko Nexus $VERSION"
-
-        echo "📦 Collecting binaries..."
-        mkdir -p release_binaries
-        for dir in artifacts/*; do
-          [ -d "$dir" ] || continue
-          cp "$dir"/* release_binaries/
-        done
+        FILES=$(find artifacts -name "*.zip")
 
         if gh release view "$TAG" &>/dev/null; then
-          echo "ℹ️  Release $TAG exists – uploading missing binaries."
+          echo "ℹ️  Release $TAG exists – checking for missing artifacts..."
           EXISTING_ASSETS=$(gh release view "$TAG" --json assets -q '.assets[].name')
-          for FILE in release_binaries/*; do
+          for FILE in $FILES; do
             NAME=$(basename "$FILE")
             if echo "$EXISTING_ASSETS" | grep -qx "$NAME"; then
               echo "✔️  $NAME already uploaded"
@@ -115,7 +118,7 @@ jobs:
           done
         else
           echo "🆕 Creating release $TAG"
-          gh release create "$TAG" release_binaries/* \
+          gh release create "$TAG" $FILES \
             --title "$TITLE" \
             --notes-file release_notes.md
         fi
