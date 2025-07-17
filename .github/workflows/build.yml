@@ -28,38 +28,22 @@ jobs:
         with:
           go-version: "1.22"
 
-      - name: 🔨 Build binary
+      - name: 📦 Zip binary
         shell: bash
+        if: matrix.os != 'windows-latest'
         run: |
-          case "${{ matrix.os }}" in
-            ubuntu-latest) GOOS=linux ;;
-            windows-latest) GOOS=windows ;;
-            macos-latest) GOOS=darwin ;;
-          esac
-
-          GOARCH="${{ matrix.arch }}"
-          EXT=""
-          [ "$GOOS" = "windows" ] && EXT=".exe"
-
-          FILENAME="atsuko-${GOOS}-${GOARCH}${EXT}"
-
-          echo "GOOS=$GOOS" >> $GITHUB_ENV
-          echo "GOARCH=$GOARCH" >> $GITHUB_ENV
-          echo "OUTPUT_FILENAME=$FILENAME" >> $GITHUB_ENV
-
-          echo "🔧 Building $FILENAME for $GOOS/$GOARCH"
-          mkdir -p build artifacts
-
-          CGO_ENABLED=0 GOOS=$GOOS GOARCH=$GOARCH go build -v -o "./build/$FILENAME" ./src/main.go
-
-          # Ensure it's executable (not needed for Windows but safe to include)
-          chmod +x "./build/$FILENAME"
-
-          # Zip it to preserve integrity/permissions
           ZIPFILE="atsuko-${GOOS}-${GOARCH}.zip"
           zip -j "artifacts/$ZIPFILE" "./build/$FILENAME"
-
           echo "ZIPPED_FILENAME=$ZIPFILE" >> $GITHUB_ENV
+
+      - name: 📦 Zip binary (Windows)
+        shell: pwsh
+        if: matrix.os == 'windows-latest'
+        run: |
+          $zipfile = "artifacts/atsuko-${env:GOOS}-${env:GOARCH}.zip"
+          Add-Type -A 'System.IO.Compression.FileSystem'
+          [System.IO.Compression.ZipFile]::CreateFromDirectory("build", $zipfile)
+          echo "ZIPPED_FILENAME=atsuko-${env:GOOS}-${env:GOARCH}.zip" >> $env:GITHUB_ENV
 
       - name: 📦 Upload zipped binary
         uses: actions/upload-artifact@v4
