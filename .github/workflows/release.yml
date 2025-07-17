@@ -3,122 +3,98 @@ name: Create Release
 on:
   workflow_run:
     workflows: ["Build"]
-    types: [completed]
-
-permissions:
-  contents: write
-  actions: read
-  id-token: write
+    types:
+      - completed
 
 jobs:
   release:
-    if: >
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch == 'main'
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
 
     steps:
-    - name: 🧾 Checkout repository
-      uses: actions/checkout@v4
+      - name: 🧾 Checkout repo
+        uses: actions/checkout@v4
 
-    - name: 🔍 Extract VERSION from Go source
-      id: extract
-      run: |
-        VERSION=$(grep -oP 'Current\s*=\s*"\K[^"]+' src/version/version.go)
-        echo "VERSION=$VERSION" | tee -a $GITHUB_ENV
+      - name: 🔍 Extract version
+        id: version
+        run: |
+          VERSION=$(grep -oP 'Version\s*=\s*"\K[^"]+' src/version/version.go)
+          echo "VERSION=$VERSION" | tee -a $GITHUB_ENV
 
-    - name: 🔽 Download latest Build artifacts
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        RUN_ID=$(gh run list \
-          --workflow="Build" \
-          --branch="main" \
-          --event=push \
-          --json databaseId,status,conclusion \
-          --limit 10 \
-          -q '[.[] | select(.status=="completed" and .conclusion=="success")][0].databaseId')
+      - name: 🔽 Download all artifacts from Build workflow
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          run_id: ${{ github.event.workflow_run.id }}
+          path: artifacts
 
-        if [ -z "$RUN_ID" ]; then
-          echo "❌ Could not find a successful Build run on 'main'"
-          exit 1
-        fi
+      - name: 🗂️ List artifact files
+        id: artifact_list
+        run: |
+          ARTIFACT_NAMES=$(find artifacts -type f -exec basename {} \; | paste -sd, -)
+          echo "ARTIFACT_NAMES=$ARTIFACT_NAMES" >> $GITHUB_ENV
 
-        echo "✅ Found successful run ID: $RUN_ID"
-        gh run download "$RUN_ID" --dir artifacts
+      - name: 🔖 Generate changelog from last tag
+        id: changelog
+        run: |
+          git fetch --tags --unshallow || true
+          git fetch origin main
 
-    - name: 📦 Compress each artifact into separate .zip files
-      run: |
-        for file in artifacts/*; do
-          [ -f "$file" ] || continue
-          base_name=$(basename "$file")
-          echo "Compressing $base_name"
-          zip -j "artifacts/${base_name%.*}.zip" "$file"
-          rm -f "$file"
-        done
+          VERSION="${{ env.VERSION }}"
+          LAST_TAG=$(git tag --sort=-creatordate | grep -v "^${VERSION}$" | head -n1 || true)
+          RANGE=""
+          [ -n "$LAST_TAG" ] && RANGE="$LAST_TAG..HEAD"
 
-    - name: 🔖 Generate changelog from last tag
-      id: changelog
-      run: |
-        git fetch --tags --unshallow || true
-        git fetch origin main
+          get_list () {
+            KEY="$1"
+            git log $RANGE --no-merges --pretty=format:"- %s (%h)" \
+              --grep="^\[${KEY}\]" --regexp-ignore-case | \
+              sed -E "s/^- \[${KEY}\] /- /I" || true
+          }
 
-        LAST_TAG=$(git tag --sort=-creatordate | grep -v "^${VERSION}$" | head -n1 || true)
-        RANGE=""
-        [ -n "$LAST_TAG" ] && RANGE="$LAST_TAG..HEAD"
+          ADDED=$(get_list "ADD")
+          REMOVED=$(get_list "REMOVE")
+          FIXED=$(get_list "FIX")
 
-        get_list () {
-          KEY="$1"
-          git log $RANGE --no-merges --pretty=format:"- %s (%h)" \
-            --grep="^\[${KEY}\]" --regexp-ignore-case | \
-            sed -E "s/^- \[${KEY}\] /- /I" || true
-        }
+          [[ -z "$ADDED"   ]] && ADDED="N/A"
+          [[ -z "$REMOVED" ]] && REMOVED="N/A"
+          [[ -z "$FIXED"   ]] && FIXED="N/A"
 
-        ADDED=$(get_list "ADD")
-        REMOVED=$(get_list "REMOVE")
-        FIXED=$(get_list "FIX")
+          {
+            echo "## Changes in ${VERSION}"
+            echo
+            echo "**Added:**"
+            echo "$ADDED"
+            echo
+            echo "**Removed:**"
+            echo "$REMOVED"
+            echo
+            echo "**Fixed:**"
+            echo "$FIXED"
+          } > release_notes.md
 
-        [[ -z "$ADDED"   ]] && ADDED="N/A"
-        [[ -z "$REMOVED" ]] && REMOVED="N/A"
-        [[ -z "$FIXED"   ]] && FIXED="N/A"
+      - name: 🚀 Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ env.VERSION }}
+          release_name: Release ${{ env.VERSION }}
+          body_path: release_notes.md
+          draft: false
+          prerelease: ${{ contains(env.VERSION, 'alpha') || contains(env.VERSION, 'beta') }}
 
-        {
-          echo "## Changes in ${VERSION}"
-          echo
-          echo "**Added:**"
-          echo "$ADDED"
-          echo
-          echo "**Removed:**"
-          echo "$REMOVED"
-          echo
-          echo "**Fixed:**"
-          echo "$FIXED"
-        } > release_notes.md
-
-    - name: 🚀 Create or update GitHub Release
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        set -e
-        TAG="$VERSION"
-        TITLE="Atsuko Nexus $VERSION"
-        FILES=$(find artifacts -name "*.zip")
-
-        if gh release view "$TAG" &>/dev/null; then
-          echo "ℹ️  Release $TAG exists – checking for missing artifacts..."
-          EXISTING_ASSETS=$(gh release view "$TAG" --json assets -q '.assets[].name')
-          for FILE in $FILES; do
-            NAME=$(basename "$FILE")
-            if echo "$EXISTING_ASSETS" | grep -qx "$NAME"; then
-              echo "✔️  $NAME already uploaded"
-            else
-              echo "➕ Uploading $NAME"
-              gh release upload "$TAG" "$FILE" --clobber
-            fi
+      - name: 📤 Upload binaries to release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for file in artifacts/*; do
+            name=$(basename "$file")
+            echo "Uploading $name..."
+            curl \
+              --request POST \
+              --header "Authorization: token $GITHUB_TOKEN" \
+              --header "Content-Type: application/octet-stream" \
+              --data-binary @"$file" \
+              "https://uploads.github.com/repos/${{ github.repository }}/releases/${{ steps.create_release.outputs.id }}/assets?name=$name"
           done
-        else
-          echo "🆕 Creating release $TAG"
-          gh release create "$TAG" $FILES \
-            --title "$TITLE" \
-            --notes-file release_notes.md
-        fi
