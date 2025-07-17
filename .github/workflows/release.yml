@@ -88,17 +88,17 @@ jobs:
           draft: false
           prerelease: ${{ contains(env.VERSION, 'alpha') || contains(env.VERSION, 'beta') }}
 
-      - name: 📤 Upload binaries to release
+      - name: 📤 Upload zipped binaries to release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          for file in $(find artifacts -type f); do
+          for file in $(find artifacts -type f -name "*.zip"); do
             name=$(basename "$file")
             echo "Uploading $name..."
             curl \
               --request POST \
               --header "Authorization: token $GITHUB_TOKEN" \
-              --header "Content-Type: application/octet-stream" \
+              --header "Content-Type: application/zip" \
               --data-binary @"$file" \
               "https://uploads.github.com/repos/${{ github.repository }}/releases/${{ steps.create_release.outputs.id }}/assets?name=$name"
           done

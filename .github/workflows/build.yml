@@ -38,21 +38,31 @@ jobs:
           esac
 
           GOARCH="${{ matrix.arch }}"
+          EXT=""
+          [ "$GOOS" = "windows" ] && EXT=".exe"
 
-          FILENAME="atsuko-${GOOS}-${GOARCH}"
-          [ "$GOOS" = "windows" ] && FILENAME="${FILENAME}.exe"
+          FILENAME="atsuko-${GOOS}-${GOARCH}${EXT}"
 
           echo "GOOS=$GOOS" >> $GITHUB_ENV
           echo "GOARCH=$GOARCH" >> $GITHUB_ENV
           echo "OUTPUT_FILENAME=$FILENAME" >> $GITHUB_ENV
 
           echo "🔧 Building $FILENAME for $GOOS/$GOARCH"
-          mkdir -p build
+          mkdir -p build artifacts
 
           CGO_ENABLED=0 GOOS=$GOOS GOARCH=$GOARCH go build -v -o "./build/$FILENAME" ./src/main.go
 
-      - name: ⬆️ Upload binary
+          # Ensure it's executable (not needed for Windows but safe to include)
+          chmod +x "./build/$FILENAME"
+
+          # Zip it to preserve integrity/permissions
+          ZIPFILE="atsuko-${GOOS}-${GOARCH}.zip"
+          zip -j "artifacts/$ZIPFILE" "./build/$FILENAME"
+
+          echo "ZIPPED_FILENAME=$ZIPFILE" >> $GITHUB_ENV
+
+      - name: 📦 Upload zipped binary
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.OUTPUT_FILENAME }}
-          path: ./build/${{ env.OUTPUT_FILENAME }}
+          name: ${{ env.ZIPPED_FILENAME }}
+          path: artifacts/${{ env.ZIPPED_FILENAME }}
