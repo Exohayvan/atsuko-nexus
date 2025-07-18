@@ -14,6 +14,8 @@ jobs:
   release:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
+    env:
+      VERSION: dummy #Value to escape vscode issues
 
     steps:
       - name: 🧾 Checkout repo
@@ -39,8 +41,6 @@ jobs:
 
       - name: 🔖 Generate changelog from last tag
         id: changelog
-        env:
-          VERSION: dummy  # added to avoid VS Code warning
         run: |
           git fetch --tags --unshallow || true
           git fetch origin main
@@ -83,7 +83,6 @@ jobs:
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: dummy  # added to avoid VS Code warning
         with:
           tag_name: ${{ env.VERSION }}
           release_name: Release ${{ env.VERSION }}

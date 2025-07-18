@@ -14,6 +14,8 @@ jobs:
   build:
     name: Build on ${{ matrix.os }} (${{ matrix.arch }})
     runs-on: ${{ matrix.os }}
+    env:
+      ZIPPED_FILENAME: dummy #Value to escape vscode issues
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
@@ -91,5 +93,3 @@ jobs:
         with:
           name: ${{ env.ZIPPED_FILENAME }}
           path: artifacts/${{ env.ZIPPED_FILENAME }}
-        env:
-          ZIPPED_FILENAME: dummy  # added to avoid vscode warning
