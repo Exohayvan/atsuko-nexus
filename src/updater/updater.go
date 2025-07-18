@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"time"
 
 	"atsuko-nexus/src/logger"
 	"atsuko-nexus/src/version"
@@ -89,7 +90,9 @@ func RunUpdater() {
 		return
 	}
 
-	logger.Log("INFO", "updater", "Update applied successfully. Please restart the application.")
+	logger.Log("INFO", "updater", "Update applied successfully. Please restart the application manually.")
+	time.Sleep(3 * time.Second) // Wait 3 seconds before exiting
+	os.Exit(0)
 }
 
 // detectChannel returns the update channel for a given version string.
