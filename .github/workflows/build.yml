@@ -91,3 +91,5 @@ jobs:
         with:
           name: ${{ env.ZIPPED_FILENAME }}
           path: artifacts/${{ env.ZIPPED_FILENAME }}
+        env:
+          ZIPPED_FILENAME: dummy  # added to avoid vscode warning
