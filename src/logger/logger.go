@@ -1,6 +1,5 @@
 // Package logger provides a simple, thread-safe, color-coded logging system
-// for terminal applications. It supports different log levels, category tags,
-// and optionally reads log level visibility from a `settings.yaml` config file.
+// for terminal applications. It supports different log levels, category tags, and optionally reads log level visibility from a `settings.yaml` config file.
 package logger
 
 import (
