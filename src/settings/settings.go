@@ -1,3 +1,5 @@
+// Package settings handles loading and validating the `settings.yaml` configuration file.
+// It ensures a default file is created if one is missing or incomplete, and allows querying settings using dot-separated keys (e.g., "logger.debug").
 package settings
 
 import (
@@ -9,57 +11,66 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// configMap holds the in-memory parsed YAML configuration data.
 var configMap map[string]interface{}
 
+// configFile stores the absolute path to the `settings.yaml` file.
 var configFile string
 
+// init is called automatically at startup. It resolves the config file path relative to the executable and loads the settings into memory.
+// If the config is missing, invalid, or missing keys, it rewrites it with defaults.
 func init() {
-    exePath, err := os.Executable()
-    if err != nil {
-        panic("Failed to get executable path: " + err.Error())
-    }
-    exeDir := filepath.Dir(exePath)
-    configFile = filepath.Join(exeDir, "settings.yaml")
+	exePath, err := os.Executable()
+	if err != nil {
+		panic("Failed to get executable path: " + err.Error())
+	}
+	exeDir := filepath.Dir(exePath)
+	configFile = filepath.Join(exeDir, "settings.yaml")
 
-    loadSettings()
+	loadSettings()
 }
 
+// loadSettings loads and validates the YAML configuration file.
+// It creates or rewrites the file if it’s missing, malformed, or missing required keys.
 func loadSettings() {
-    // Check existence
-    _, err := os.Stat(configFile)
-    if os.IsNotExist(err) {
-        logger.Log("WARNING", "settings", "settings.yaml not found. Creating default config.")
-        writeDefault()
-    }
+	// Check if the config file exists
+	_, err := os.Stat(configFile)
+	if os.IsNotExist(err) {
+		logger.Log("WARNING", "settings", "settings.yaml not found. Creating default config.")
+		writeDefault()
+	}
 
-    // Load and parse file
-    raw, err := os.ReadFile(configFile)
-    if err != nil {
-        logger.Log("ERROR", "settings", "Failed to read settings.yaml: "+err.Error())
-        writeDefault()
-        raw = []byte(defaultYAML)
-    }
+	// Read the file content
+	raw, err := os.ReadFile(configFile)
+	if err != nil {
+		logger.Log("ERROR", "settings", "Failed to read settings.yaml: "+err.Error())
+		writeDefault()
+		raw = []byte(defaultYAML)
+	}
 
-    err = yaml.Unmarshal(raw, &configMap)
-    if err != nil {
-        logger.Log("ERROR", "settings", "settings.yaml is not valid YAML. Overwriting with default.")
-        writeDefault()
-        raw = []byte(defaultYAML)
-        yaml.Unmarshal(raw, &configMap)
-    }
+	// Parse YAML content into configMap
+	err = yaml.Unmarshal(raw, &configMap)
+	if err != nil {
+		logger.Log("ERROR", "settings", "settings.yaml is not valid YAML. Overwriting with default.")
+		writeDefault()
+		raw = []byte(defaultYAML)
+		yaml.Unmarshal(raw, &configMap)
+	}
 
-    var defaultMap map[string]interface{}
-    yaml.Unmarshal([]byte(defaultYAML), &defaultMap)
-    if !validateKeys(defaultMap, configMap) {
-        logger.Log("WARNING", "settings", "settings.yaml missing keys. Replacing with default.")
-        writeDefault()
-        yaml.Unmarshal([]byte(defaultYAML), &configMap)
-    }
+	// Compare keys to ensure all expected fields exist
+	var defaultMap map[string]interface{}
+	yaml.Unmarshal([]byte(defaultYAML), &defaultMap)
+	if !validateKeys(defaultMap, configMap) {
+		logger.Log("WARNING", "settings", "settings.yaml missing keys. Replacing with default.")
+		writeDefault()
+		yaml.Unmarshal([]byte(defaultYAML), &configMap)
+	}
 
-    logger.Log("INFO", "settings", "settings.yaml loaded successfully.")
+	logger.Log("INFO", "settings", "settings.yaml loaded successfully.")
 }
 
-// Get returns a setting value by dot-separated key like "logger.debug"
+// Get returns the value of a setting using dot-separated keys (e.g., "logger.debug").
+// It traverses nested maps and returns nil if the key does not exist.
 func Get(key string) interface{} {
 	keys := strings.Split(key, ".")
 	var current any = configMap
@@ -73,7 +84,8 @@ func Get(key string) interface{} {
 	return current
 }
 
-// validateKeys ensures all keys in defaultMap exist in targetMap
+// validateKeys recursively checks whether all keys from defaultMap exist in targetMap.
+// This ensures compatibility if new config fields are added in future updates.
 func validateKeys(defaultMap, targetMap map[string]interface{}) bool {
 	for k, v := range defaultMap {
 		val, ok := targetMap[k]
@@ -93,7 +105,8 @@ func validateKeys(defaultMap, targetMap map[string]interface{}) bool {
 	return true
 }
 
-// writeDefault saves the default config to disk
+// writeDefault writes the defaultYAML content to `settings.yaml` on disk.
+// It is called when the config is missing or needs to be replaced.
 func writeDefault() {
 	err := os.WriteFile(configFile, []byte(defaultYAML), 0644)
 	if err != nil {
