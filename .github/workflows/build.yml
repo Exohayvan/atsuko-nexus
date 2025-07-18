@@ -63,7 +63,7 @@ jobs:
         if: matrix.os != 'windows-latest'
         shell: bash
         run: |
-          ZIPFILE="atsuko-${GOOS}-${GOARCH}.zip"
+          ZIPFILE="atsuko-${FILE_OS}-${GOARCH}.zip"
           zip -j "artifacts/$ZIPFILE" "build/$OUTPUT_FILENAME"
           echo "ZIPPED_FILENAME=$ZIPFILE" >> $GITHUB_ENV
 
