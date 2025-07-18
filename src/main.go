@@ -19,7 +19,7 @@ func main() {
 	// Log the startup event with the generated Node ID
 	logger.Log("INFO", "MAIN", "Script started with ID: "+nodeID)
 
-	// Start the updater in a background goroutine to run every 10 minutes
+	// Start the updater in a background goroutine to run every 5 minutes
 	go func() {
 		for {
 			// Log that the updater is running
@@ -28,8 +28,8 @@ func main() {
 			// Execute the updater logic to check and apply new releases if needed
 			updater.RunUpdater()
 
-			// Wait 10 minutes before checking again
-			time.Sleep(10 * time.Minute)
+			// Wait 5 minutes before checking again
+			time.Sleep(5 * time.Minute)
 		}
 	}()
 
