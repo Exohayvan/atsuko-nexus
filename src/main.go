@@ -3,10 +3,11 @@
 package main
 
 import (
-	"atsuko-nexus/src/logger"  // Custom logger for formatted terminal output
-	"atsuko-nexus/src/nodeid"  // Node ID generation based on system info
-	"atsuko-nexus/src/ui"      // TUI (Text-based User Interface) using Bubble Tea
-	"atsuko-nexus/src/updater" // Auto-updater that fetches latest release from GitHub
+	"atsuko-nexus/src/logger"
+	"atsuko-nexus/src/nodeid"
+	"atsuko-nexus/src/ui"
+	"atsuko-nexus/src/updater"
+	"atsuko-nexus/src/p2p"
 	"time"
 )
 
@@ -32,6 +33,12 @@ func main() {
 			time.Sleep(5 * time.Minute)
 		}
 	}()
+
+	// Start Bootstrap Listener
+	p2p.StartBootstrapListener()
+
+	// Start Bootstrap
+	p2p.Bootstrap()
 
 	// Start the terminal user interface.
 	// This call blocks the main thread until the UI exits.
