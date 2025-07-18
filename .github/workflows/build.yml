@@ -41,10 +41,15 @@ jobs:
           EXT=""
           [ "$GOOS" = "windows" ] && EXT=".exe"
 
-          FILENAME="atsuko-${GOOS}-${GOARCH}${EXT}"
+          # 🧠 Use macos in filename instead of darwin
+          FILE_OS="$GOOS"
+          [ "$GOOS" = "darwin" ] && FILE_OS="macos"
+
+          FILENAME="atsuko-${FILE_OS}-${GOARCH}${EXT}"
 
           echo "GOOS=$GOOS" >> $GITHUB_ENV
           echo "GOARCH=$GOARCH" >> $GITHUB_ENV
+          echo "FILE_OS=$FILE_OS" >> $GITHUB_ENV
           echo "OUTPUT_FILENAME=$FILENAME" >> $GITHUB_ENV
 
           echo "🔧 Building $FILENAME for $GOOS/$GOARCH"
