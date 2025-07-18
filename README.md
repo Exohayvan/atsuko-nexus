@@ -1,6 +1,21 @@
 # Atsuko: Nexus
 
-![Build](https://img.shields.io/github/actions/workflow/status/Exohayvan/atsuko-nexus/build.yml?branch=main&style=for-the-badge)
+[![Contributors][contributors-shield]][contributors-url]
+[![Forks][forks-shield]][forks-url]
+[![Stargazers][stars-shield]][stars-url]
+[![Issues][issues-shield]][issues-url]
+[![MIT License][license-shield]][license-url]
+[![GitHub latest commit][last-commit]][git-commit]
+[![GitHub release][release]][release-link]
+[![Github all releases][downloads]][release-link]
+![Size][repo-size]
+![Code][code-size]
+
+---
+### Build Infomation
+![GO][go]![Build][build-workflow]
+
+![Linux][linux-img]![Windows][windows-img]![MacOS][MacOS-img]
 
 > ⚠️ **ALPHA WARNING**: Atsuko: Nexus is a complete rewrite and currently in **ALPHA**.  
 > It is **not production-ready**, features may be unstable, and breaking changes are frequent.  
@@ -9,7 +24,7 @@
 ---
 
 ### My Server Stats
-[![Discord Server Online](https://img.shields.io/discord/761673024004816936.svg?logo=discord&style=for-the-badge)](https://discord.gg/BYF6NTs)
+[![Discord Server Online][discord-img]][discord-inv]
 
 ---
 
@@ -60,3 +75,42 @@ Atsuko's new architecture welcomes collaboration! Feel free to fork, contribute,
 - Contributions from developers and users like you
 
 ---
+<!-- MARKDOWN LINKS & IMAGES -->
+<!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
+[build-workflow]: https://img.shields.io/github/actions/workflow/status/Exohayvan/atsuko-nexus/build.yml?branch=main&style=for-the-badge
+
+[contributors-shield]: https://img.shields.io/github/contributors/Exohayvan/atsuko-nexus.svg?style=for-the-badge
+[contributors-url]: https://github.com/Exohayvan/atsuko-nexus/graphs/contributors
+
+[forks-shield]: https://img.shields.io/github/forks/Exohayvan/atsuko-nexus.svg?style=for-the-badge
+[forks-url]: https://github.com/Exohayvan/atsuko-nexus/network/members
+
+[stars-shield]: https://img.shields.io/github/stars/Exohayvan/atsuko-nexus.svg?style=for-the-badge
+[stars-url]: https://github.com/Exohayvan/atsuko-nexus/stargazers
+
+[issues-shield]: https://img.shields.io/github/issues/Exohayvan/atsuko-nexus.svg?style=for-the-badge
+[issues-url]: https://github.com/Exohayvan/atsuko-nexus/issues
+
+[license-shield]: https://img.shields.io/github/license/Exohayvan/atsuko-nexus.svg?style=for-the-badge
+[license-url]: https://github.com/Exohayvan/atsuko-nexus/blob/main/LICENSE.md
+
+[last-commit]: https://img.shields.io/github/last-commit/exohayvan/atsuko-nexus?style=for-the-badge
+[git-commit]: https://GitHub.com/exohayvan/atsuko-nexus/commit/
+
+[release]: https://img.shields.io/github/release/exohayvan/atsuko-nexus.svg?include_prereleases&style=for-the-badge
+[release-link]: https://GitHub.com/exohayvan/atsuko-nexus/releases/
+
+[downloads]: https://img.shields.io/github/downloads/exohayvan/atsuko-nexus/total.svg?style=for-the-badge
+
+[repo-size]: https://img.shields.io/github/repo-size/exohayvan/atsuko-nexus?style=for-the-badge
+
+[code-size]: https://img.shields.io/github/languages/code-size/exohayvan/atsuko-nexus?style=for-the-badge
+
+[go]: https://img.shields.io/badge/Go-%2300ADD8.svg?style=for-the-badge&logo=go&logoColor=white
+
+[linux-img]: https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black
+[Windows-img]: https://custom-icon-badges.demolab.com/badge/Windows-0078D6?style=for-the-badge&logo=windows11&logoColor=white
+[macOS-img]: https://img.shields.io/badge/macOS-000000?style=for-the-badge&logo=apple&logoColor=F0F0F0
+
+[discord-img]: https://img.shields.io/discord/761673024004816936.svg?logo=discord&style=for-the-badge
+[discord-inv]: https://discord.gg/BYF6NTs
