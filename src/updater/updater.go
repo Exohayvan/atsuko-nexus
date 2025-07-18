@@ -1,3 +1,5 @@
+// Package updater handles fetching, downloading, and applying the latest release of the Atsuko Nexus binary from GitHub. 
+// It compares the current version against available releases and applies an update if a newer version is found.
 package updater
 
 import (
@@ -16,10 +18,12 @@ import (
 )
 
 const (
+	// GitHub repository owner and name used to fetch releases.
 	repoOwner = "Exohayvan"
 	repoName  = "atsuko-nexus"
 )
 
+// GitHubRelease represents a simplified structure of a GitHub API release response.
 type GitHubRelease struct {
 	TagName    string `json:"tag_name"`
 	Prerelease bool   `json:"prerelease"`
@@ -29,10 +33,14 @@ type GitHubRelease struct {
 	} `json:"assets"`
 }
 
+// RunUpdater checks for newer releases, downloads the latest binary if needed, and replaces the currently running executable.
+// It is designed to be safe, only applying updates if a newer version in the same channel (alpha/beta/stable) is found.
 func RunUpdater() {
 	logger.Log("INFO", "updater", "Checking for updates...")
+
 	currentVersion := version.Get()
 	channel := detectChannel(currentVersion)
+
 	logger.Log("DEBUG", "updater", "Current version: "+currentVersion)
 	logger.Log("DEBUG", "updater", "Current channel: "+channel)
 
@@ -49,7 +57,6 @@ func RunUpdater() {
 	}
 
 	latest := filtered[0]
-
 	if latest.TagName == currentVersion {
 		logger.Log("INFO", "updater", "Already up to date: "+currentVersion)
 		return
@@ -85,6 +92,8 @@ func RunUpdater() {
 	logger.Log("INFO", "updater", "Update applied successfully. Please restart the application.")
 }
 
+// detectChannel returns the update channel for a given version string.
+// Recognized channels: "alpha", "beta", or "stable" (default fallback).
 func detectChannel(version string) string {
 	version = strings.ToLower(version)
 	switch {
@@ -97,6 +106,7 @@ func detectChannel(version string) string {
 	}
 }
 
+// fetchAllReleases pulls all releases from the GitHub API and sorts them in descending order by tag name.
 func fetchAllReleases() ([]GitHubRelease, error) {
 	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases", repoOwner, repoName)
 	resp, err := http.Get(url)
@@ -117,6 +127,7 @@ func fetchAllReleases() ([]GitHubRelease, error) {
 	return releases, nil
 }
 
+// filterReleasesByChannel filters the releases to include only those matching the current channel (e.g., alpha, beta, stable).
 func filterReleasesByChannel(all []GitHubRelease, channel string) []GitHubRelease {
 	var filtered []GitHubRelease
 	for _, r := range all {
@@ -139,6 +150,8 @@ func filterReleasesByChannel(all []GitHubRelease, channel string) []GitHubReleas
 	return filtered
 }
 
+// buildTargetName builds the expected asset name for the current OS and architecture.
+// For example, "atsuko-macos-arm64" or "atsuko-windows-amd64".
 func buildTargetName() string {
 	platform := runtime.GOOS
 	arch := runtime.GOARCH
@@ -158,6 +171,7 @@ func buildTargetName() string {
 	return fmt.Sprintf("atsuko-%s-%s", platformLabel, arch)
 }
 
+// findAssetURL searches for the matching downloadable asset by name in a GitHub release.
 func findAssetURL(release *GitHubRelease, targetName string) string {
 	for _, asset := range release.Assets {
 		if strings.EqualFold(asset.Name, targetName) {
@@ -167,6 +181,7 @@ func findAssetURL(release *GitHubRelease, targetName string) string {
 	return ""
 }
 
+// downloadFile downloads a file from a URL and saves it to the specified local path.
 func downloadFile(filepath, url string) error {
 	resp, err := http.Get(url)
 	if err != nil {
@@ -184,6 +199,8 @@ func downloadFile(filepath, url string) error {
 	return err
 }
 
+// extractBinaryFromZip extracts the first file in a zip archive to a specified output path.
+// It assumes the archive contains a single executable binary.
 func extractBinaryFromZip(zipPath, outputPath string) error {
 	r, err := zip.OpenReader(zipPath)
 	if err != nil {
@@ -221,6 +238,8 @@ func extractBinaryFromZip(zipPath, outputPath string) error {
 	return nil
 }
 
+// applyUpdate replaces the currently running binary with the newly downloaded binary.
+// It renames the current binary as a backup and attempts to overwrite it.
 func applyUpdate(tempBinary string) error {
 	currentBinary, err := os.Executable()
 	if err != nil {
