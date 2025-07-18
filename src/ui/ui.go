@@ -1,3 +1,5 @@
+// Package ui provides the interactive terminal user interface (TUI) for Atsuko Nexus.
+// It displays live system metrics, logs, and general status information using the Bubble Tea framework.
 package ui
 
 import (
@@ -19,26 +21,29 @@ import (
 )
 
 var (
-	startTime     = time.Now()
-	nodeID        string
-	peers         = "0"
-	lastBytesSent uint64
-	lastBytesRecv uint64
-	lastNetTime   time.Time
+	startTime     = time.Now() // Used to calculate uptime
+	nodeID        string       // The Node ID shown in the UI
+	peers         = "0"        // Number of peers (placeholder for future)
+	lastBytesSent uint64       // Used to track network upload delta
+	lastBytesRecv uint64       // Used to track network download delta
+	lastNetTime   time.Time    // Last time network was sampled
 )
 
+// model defines the Bubble Tea view model with viewport support.
 type model struct {
 	viewport viewport.Model
 	ready    bool
 }
 
-type tickMsg struct{}
-type heartbeatMsg struct{}
+type tickMsg struct{}      // Message used to trigger log refresh
+type heartbeatMsg struct{} // Message used to trigger system metric heartbeat
 
+// getUptime returns a human-readable duration string since app launch.
 func getUptime() string {
 	return time.Since(startTime).Round(time.Second).String()
 }
 
+// formatBytes converts a byte count into a human-readable string with units.
 func formatBytes(b uint64) string {
 	const unit = 1024
 	if b < unit {
@@ -52,6 +57,7 @@ func formatBytes(b uint64) string {
 	return fmt.Sprintf("%.1f %cB", float64(b)/float64(div), "KMGTPE"[exp])
 }
 
+// tick returns a Bubble Tea command that sends a tickMsg at the configured interval.
 func tick() tea.Cmd {
 	refreshSec := settings.Get("ui.panel_refresh_time")
 	refreshDur := time.Second
@@ -67,6 +73,7 @@ func tick() tea.Cmd {
 	})
 }
 
+// heartbeatTick returns a Bubble Tea command that sends a heartbeatMsg on interval.
 func heartbeatTick() tea.Cmd {
 	interval := settings.Get("metrics.heartbeat_interval")
 	intervalDur := 120 * time.Second
@@ -82,10 +89,12 @@ func heartbeatTick() tea.Cmd {
 	})
 }
 
+// Init sets up the Bubble Tea program to run both the tick and heartbeat loops.
 func (m model) Init() tea.Cmd {
 	return tea.Batch(tick(), heartbeatTick())
 }
 
+// Update handles user interaction, window size changes, tick/heartbeat messages, and viewport updates.
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 
@@ -111,6 +120,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case heartbeatMsg:
 		logMsg := "Node still alive"
 
+		// Collect system metrics if enabled
 		if settings.Get("metrics.enable_metrics") == true {
 			parts := []string{}
 
@@ -172,6 +182,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
+// View renders the main TUI panel: header, status line, help line, and log viewport.
 func (m model) View() string {
 	header := lipgloss.NewStyle().
 		Bold(true).
@@ -189,6 +200,7 @@ func (m model) View() string {
 	return header + "\n" + status + "\n" + help + "\n" + m.viewport.View()
 }
 
+// Start launches the user interface, initializing network counters and running the TUI.
 func Start(id string) {
 	logger.Log("DEBUG", "UI", "UI Started.")
 	nodeID = id
