@@ -101,10 +101,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.WindowSizeMsg:
 		if !m.ready {
+			logger.Log("DEBUG", "UI", fmt.Sprintf("Initial window size: %dx%d", msg.Width, msg.Height))
 			m.viewport = viewport.New(msg.Width, msg.Height-3)
 			m.viewport.Style = lipgloss.NewStyle().Border(lipgloss.RoundedBorder())
 			m.ready = true
 		} else {
+			logger.Log("DEBUG", "UI", fmt.Sprintf("Window resized to: %dx%d", msg.Width, msg.Height))
 			m.viewport.Width = msg.Width
 			m.viewport.Height = msg.Height - 3
 		}
@@ -120,19 +122,24 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case heartbeatMsg:
 		logMsg := "Node still alive"
+		logger.Log("DEBUG", "heartbeat", "heartbeatMsg received, collecting metrics...")
 
-		// Collect system metrics if enabled
 		if settings.Get("metrics.enable_metrics") == true {
 			parts := []string{}
 
 			if settings.Get("metrics.cpu_monitoring") == true {
 				if usage, _ := cpu.Percent(0, false); len(usage) > 0 {
+					logger.Log("DEBUG", "heartbeat", fmt.Sprintf("CPU usage: %.1f%%", usage[0]))
 					parts = append(parts, fmt.Sprintf("CPU: %.1f%%", usage[0]))
 				}
 			}
 
 			if settings.Get("metrics.ram_monitoring") == true {
 				if vmStat, _ := mem.VirtualMemory(); vmStat != nil {
+					logger.Log("DEBUG", "heartbeat", fmt.Sprintf("RAM usage: %.1f%% (%s/%s)",
+						vmStat.UsedPercent,
+						formatBytes(vmStat.Used),
+						formatBytes(vmStat.Total)))
 					parts = append(parts, fmt.Sprintf("RAM: %.1f%% (%s/%s)",
 						vmStat.UsedPercent,
 						formatBytes(vmStat.Used),
@@ -151,6 +158,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 					upRate := deltaSent / elapsed
 					downRate := deltaRecv / elapsed
+
+					logger.Log("DEBUG", "heartbeat", fmt.Sprintf("Net ↑ %s/s ↓ %s/s",
+						formatBytes(uint64(upRate)),
+						formatBytes(uint64(downRate))))
 
 					lastBytesSent = ioStat[0].BytesSent
 					lastBytesRecv = ioStat[0].BytesRecv
@@ -203,17 +214,22 @@ func (m model) View() string {
 
 // Start launches the user interface, initializing network counters and running the TUI.
 func Start(id string) {
-	logger.Log("DEBUG", "UI", "UI Started.")
+	logger.Log("DEBUG", "UI", "UI Start() called.")
 	nodeID = id
 	lastNetTime = time.Now()
 
+	logger.Log("DEBUG", "UI", "Initializing network counters...")
 	if counters, _ := net.IOCounters(false); len(counters) > 0 {
 		lastBytesSent = counters[0].BytesSent
 		lastBytesRecv = counters[0].BytesRecv
+		logger.Log("DEBUG", "UI", fmt.Sprintf("Initial Bytes Sent: %d, Bytes Recv: %d", lastBytesSent, lastBytesRecv))
 	}
 
+	logger.Log("INFO", "UI", "Launching TUI...")
 	p := tea.NewProgram(model{}, tea.WithAltScreen(), tea.WithMouseCellMotion())
 	if _, err := p.Run(); err != nil {
+		logger.Log("ERROR", "UI", fmt.Sprintf("TUI crashed: %v", err))
 		panic(err)
 	}
+	logger.Log("INFO", "UI", "TUI closed gracefully.")
 }
