@@ -41,8 +41,12 @@ func Bootstrap() {
 	id := nodeid.GetNodeID()
 
 	ipv4 := fetchPublicIP("https://api.ipify.org")
-	ipv6 := fetchPublicIP("https://api64.ipify.org")
-	if ipv6 == "" {
+	rawIP := fetchPublicIP("https://api64.ipify.org")
+	parsed := net.ParseIP(rawIP)
+	var ipv6 string
+	if parsed != nil && parsed.To4() == nil {
+		ipv6 = parsed.String()
+	} else {
 		ipv6 = "none"
 	}
 
