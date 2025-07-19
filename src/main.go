@@ -29,17 +29,12 @@ func main() {
 	// Start the updater in a background goroutine to run every 5 minutes
 	go func() {
 		for {
-			// Log that the updater is running
 			logger.Log("DEBUG", "UPDATER", "Running updater check")
-
-			// Execute the updater logic to check and apply new releases if needed
 			updater.RunUpdater()
-
-			// Wait 5 minutes before checking again
 			time.Sleep(5 * time.Minute)
 		}
 	}()
-	
+
 	// Start the terminal user interface.
 	// This call blocks the main thread until the UI exits.
 	ui.Start(nodeID)
