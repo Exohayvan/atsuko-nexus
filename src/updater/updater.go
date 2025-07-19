@@ -38,28 +38,34 @@ type GitHubRelease struct {
 // It is designed to be safe, only applying updates if a newer version in the same channel (alpha/beta/stable) is found.
 func RunUpdater() {
 	logger.Log("INFO", "updater", "Checking for updates...")
+	fmt.Println("Checking for updates...")
 
 	currentVersion := version.Get()
 	channel := detectChannel(currentVersion)
 
 	logger.Log("DEBUG", "updater", "Current version: "+currentVersion)
+	fmt.Println("Current version: "+currentVersion)
 	logger.Log("DEBUG", "updater", "Current channel: "+channel)
+	fmt.Println("Current channel: "+channel)
 
 	releases, err := fetchAllReleases()
 	if err != nil {
 		logger.Log("ERROR", "updater", "Failed to fetch releases: "+err.Error())
+		fmt.Println("Failed to fetch releases: "+err.Error())
 		return
 	}
 
 	filtered := filterReleasesByChannel(releases, channel)
 	if len(filtered) == 0 {
 		logger.Log("ERROR", "updater", "No releases available in current channel")
+		fmt.Println("No releases available in current channel")
 		return
 	}
 
 	latest := filtered[0]
 	if latest.TagName == currentVersion {
 		logger.Log("INFO", "updater", "Already up to date: "+currentVersion)
+		fmt.Println("Already up to date: "+currentVersion)
 		return
 	}
 
@@ -67,30 +73,36 @@ func RunUpdater() {
 	assetURL := findAssetURL(&latest, targetName)
 	if assetURL == "" {
 		logger.Log("ERROR", "updater", "No matching asset found: "+targetName)
+		fmt.Println("No matching asset found: "+targetName)
 		return
 	}
 
 	logger.Log("INFO", "updater", fmt.Sprintf("Updating from %s to %s", currentVersion, latest.TagName))
+	fmt.Println("Updating from", currentVersion, "to", latest.TagName)
 
 	tmpZip := "atsuko_update.zip"
 	if err := downloadFile(tmpZip, assetURL); err != nil {
 		logger.Log("ERROR", "updater", "Download failed: "+err.Error())
+		fmt.Println("Download failed: "+err.Error())
 		return
 	}
 
 	tmpBin := "atsuko_tmp"
 	if err := extractBinaryFromZip(tmpZip, tmpBin); err != nil {
 		logger.Log("ERROR", "updater", "Unzip failed: "+err.Error())
+		fmt.Println("Unzip failed: "+err.Error())
 		return
 	}
 	_ = os.Remove(tmpZip)
 
 	if err := applyUpdate(tmpBin); err != nil {
 		logger.Log("ERROR", "updater", "Failed to apply update: "+err.Error())
+		fmt.Println("Failed to apply update: "+err.Error())
 		return
 	}
 
 	logger.Log("INFO", "updater", "Update applied successfully. Please restart the application manually.")
+	fmt.Println("Update applied successfully. Please restart the application manually.")
 	time.Sleep(3 * time.Second) // Wait 3 seconds before exiting
 	os.Exit(0)
 }
