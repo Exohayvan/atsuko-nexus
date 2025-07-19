@@ -144,7 +144,7 @@ metrics:
 
 # === NETWORK CONFIGURATION ===
 network:
-  listen_port: 8080
+  listen_port: 51613
   enable_upnp: true
   bind_address: "0.0.0.0"
   peer_discovery_interval: 60
