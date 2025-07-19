@@ -160,7 +160,7 @@ identity:
 
 # === STORAGE & PERSISTENCE ===
 storage:
-  data_dir: "./data"
+  database_dir: "./data/db/"
   peer_cache_file: "./data/peers/peers.yaml"
 
 # === TASK PROCESSING ===
