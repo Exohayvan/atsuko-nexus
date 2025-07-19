@@ -122,8 +122,8 @@ logger:
   warning: true
   caution: true
   error: true
-  log_to_file: true
-  log_file_path: "./logs/runtime.log"
+  log_to_file: false
+  log_file_path: "./data/logs/runtime.log"
   rotate_logs: true
   max_log_size_mb: 10
   max_log_age_days: 7
