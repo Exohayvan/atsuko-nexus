@@ -24,7 +24,7 @@ func CountActivePeers() int {
 		return 0
 	}
 
-	count := 0
+	count := -1
 	cutoff := time.Now().Add(-30 * time.Minute)
 	for _, peer := range pf.Peers {
 		if ts, err := time.Parse(time.RFC3339, peer.LastSeen); err == nil {
