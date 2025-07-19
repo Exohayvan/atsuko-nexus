@@ -20,6 +20,12 @@ func main() {
 	// Log the startup event with the generated Node ID
 	logger.Log("INFO", "MAIN", "Script started with ID: "+nodeID)
 
+	// Start Bootstrap Listener
+	p2p.StartBootstrapListener()
+
+	// Start Bootstrap
+	p2p.Bootstrap()
+
 	// Start the updater in a background goroutine to run every 5 minutes
 	go func() {
 		for {
@@ -33,13 +39,7 @@ func main() {
 			time.Sleep(5 * time.Minute)
 		}
 	}()
-
-	// Start Bootstrap Listener
-	p2p.StartBootstrapListener()
-
-	// Start Bootstrap
-	p2p.Bootstrap()
-
+	
 	// Start the terminal user interface.
 	// This call blocks the main thread until the UI exits.
 	ui.Start(nodeID)
