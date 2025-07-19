@@ -4,13 +4,15 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
+	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
-	"path/filepath"
-	"net/http"
-	"io"
+
+	"github.com/huin/goupnp/dcps/internetgateway1"
 
 	"atsuko-nexus/src/logger"
 	"atsuko-nexus/src/nodeid"
@@ -20,7 +22,6 @@ import (
 
 // Bootstrap initializes peer list, adds self, and optionally connects to a bootstrap node
 func Bootstrap() {
-
 	exePath, _ := os.Executable()
 	exeDir := filepath.Dir(exePath)
 	peerPath := filepath.Join(exeDir, fmt.Sprint(settings.Get("storage.peer_cache_file")))
@@ -49,6 +50,17 @@ func Bootstrap() {
 	peers := loadPeers(peerPath)
 	peers = upsertPeer(peers, self)
 	savePeers(peerPath, peers)
+
+	// Try UPnP forwarding
+	tryUPnPForward(port)
+
+	// Check if listener is active
+	time.Sleep(500 * time.Millisecond)
+	if isPortListening(port) {
+		logger.Log("INFO", "bootstrap", fmt.Sprintf("Confirmed listener active on port %d", port))
+	} else {
+		logger.Log("WARN", "bootstrap", fmt.Sprintf("No active listener detected on port %d", port))
+	}
 
 	if len(peers) > 1 {
 		logger.Log("INFO", "bootstrap", fmt.Sprintf("Loaded %d peers.", len(peers)))
@@ -124,8 +136,6 @@ func handleBootstrapConn(conn net.Conn) {
 	conn.Write([]byte("\n")) // Ensure newline for client to read
 }
 
-// fetchPublicIP returns the IP address from the given API URL.
-// If not reachable or invalid, returns an empty string.
 func fetchPublicIP(apiURL string) string {
 	client := http.Client{
 		Timeout: 5 * time.Second,
@@ -220,4 +230,45 @@ func isValidPeer(input string) bool {
 func filepathBase(path string) string {
 	parts := strings.Split(path, "/")
 	return parts[len(parts)-1]
+}
+
+func isPortListening(port int) bool {
+	conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), 1*time.Second)
+	if err != nil {
+		return false
+	}
+	conn.Close()
+	return true
+}
+
+func tryUPnPForward(port int) {
+	devices, _, err := internetgateway1.NewWANIPConnection1Clients()
+	if err != nil || len(devices) == 0 {
+		logger.Log("WARN", "upnp", "UPnP device not found or error occurred.")
+		return
+	}
+	client := devices[0]
+	ip, err := getLocalIP()
+	if err != nil {
+		logger.Log("WARN", "upnp", "Failed to get local IP: "+err.Error())
+		return
+	}
+	desc := "Atsuko-Nexus Bootstrap Listener"
+
+	err = client.AddPortMapping("", uint16(port), "TCP", uint16(port), ip.String(), true, desc, 0)
+	if err != nil {
+		logger.Log("ERROR", "upnp", "UPnP port mapping failed: "+err.Error())
+		return
+	}
+	logger.Log("INFO", "upnp", fmt.Sprintf("Port %d successfully forwarded via UPnP", port))
+}
+
+func getLocalIP() (net.IP, error) {
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+	return localAddr.IP, nil
 }
