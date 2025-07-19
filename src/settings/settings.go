@@ -130,7 +130,6 @@ logger:
 
 # === UI SETTINGS ===
 ui:
-  show_peer_count: true
   panel_refresh_time: 1
   theme: "default"
 
