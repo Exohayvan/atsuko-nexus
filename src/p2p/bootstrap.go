@@ -198,15 +198,37 @@ func loadPeers(path string) []PeerEntry {
 }
 
 func savePeers(path string, peers []PeerEntry) {
-	os.MkdirAll(filepath.Dir(path), 0755)
+	// Check if a folder exists where the file should be
+	if fi, err := os.Stat(path); err == nil && fi.IsDir() {
+		logger.Log("WARN", "bootstrap", fmt.Sprintf("A directory named '%s' exists — removing to save file properly.", path))
+		if err := os.RemoveAll(path); err != nil {
+			logger.Log("ERROR", "bootstrap", fmt.Sprintf("Failed to remove directory '%s': %v", path, err))
+			return
+		}
+	}
+
+	// Ensure the parent directory exists
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		logger.Log("ERROR", "bootstrap", fmt.Sprintf("Failed to create directory '%s': %v", dir, err))
+		return
+	}
+
+	// Marshal YAML
 	data, err := yaml.Marshal(PeerFile{Peers: peers})
 	if err != nil {
 		logger.Log("ERROR", "bootstrap", "Failed to encode peers: "+err.Error())
 		return
 	}
-	if err := os.WriteFile(path, data, 0644); err != nil {
-		logger.Log("ERROR", "bootstrap", fmt.Sprintf("Failed to save peer file to %s: %v", path, err))
+
+	// Save file
+	err = os.WriteFile(path, data, 0644)
+	if err != nil {
+		logger.Log("ERROR", "bootstrap", fmt.Sprintf("Failed to save peer file to '%s': %v", path, err))
+		return
 	}
+
+	logger.Log("INFO", "bootstrap", fmt.Sprintf("Successfully saved peers to '%s'", path))
 }
 
 func upsertPeer(list []PeerEntry, new PeerEntry) []PeerEntry {
@@ -225,11 +247,6 @@ func isValidPeer(input string) bool {
 		return false
 	}
 	return net.ParseIP(parts[0]) != nil
-}
-
-func filepathBase(path string) string {
-	parts := strings.Split(path, "/")
-	return parts[len(parts)-1]
 }
 
 func isPortListening(port int) bool {
