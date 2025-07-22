@@ -198,7 +198,7 @@ func loadPeers(path string) []PeerEntry {
 }
 
 func savePeers(path string, peers []PeerEntry) {
-	os.MkdirAll(strings.TrimSuffix(path, "/"+filepathBase(path)), 0755)
+	os.MkdirAll(filepath.Dir(path), 0755)
 	data, err := yaml.Marshal(PeerFile{Peers: peers})
 	if err != nil {
 		logger.Log("ERROR", "bootstrap", "Failed to encode peers: "+err.Error())
