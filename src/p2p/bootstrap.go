@@ -205,7 +205,7 @@ func savePeers(path string, peers []PeerEntry) {
 		return
 	}
 	if err := os.WriteFile(path, data, 0644); err != nil {
-		logger.Log("ERROR", "bootstrap", "Failed to save peer file: "+err.Error())
+		logger.Log("ERROR", "bootstrap", fmt.Sprintf("Failed to save peer file to %s: %v", path, err))
 	}
 }
 
