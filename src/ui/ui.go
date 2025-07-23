@@ -24,7 +24,7 @@ import (
 var (
 	startTime     = time.Now() // Used to calculate uptime
 	nodeID        string // The Node ID shown in the UI
-	peers         = fmt.Sprint(p2p.CountActivePeers()) // Number of peers
+	peers         = p2p.CountActivePeers() // Number of peers
 	lastBytesSent uint64 // Used to track network upload delta
 	lastBytesRecv uint64 // Used to track network download delta
 	lastNetTime   time.Time // Last time network was sampled
@@ -202,7 +202,7 @@ func (m model) View() string {
 
 	status := lipgloss.NewStyle().
 		Faint(true).
-		Render(fmt.Sprintf("Version: %s | Uptime: %s | Node ID: %s | Peers: %s", version.Current, getUptime(), nodeID, peers))
+		Render(fmt.Sprintf("Version: %s | Uptime: %s | Node ID: %s | Peers: %d", version.Current, getUptime(), nodeID, peers))
 
 	help := lipgloss.NewStyle().
 		Italic(true).
