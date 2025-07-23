@@ -16,20 +16,20 @@ import (
 )
 
 var (
-	staletime = 24 * time.Hour
+    staletime = 24 * time.Hour
 )
 
 func TapSync() {
     logger.Log("DEBUG", "tapsync", "Running TapSync")
 
-    // ——— make peerPath absolute ———
+    // — make peerPath absolute —
     exe, err := os.Executable()
     if err != nil {
         logger.Log("ERROR", "tapsync", "os.Executable failed: "+err.Error())
         return
     }
     baseDir := filepath.Dir(exe)
-    peerRel  := fmt.Sprint(settings.Get("storage.peer_cache_file"))
+    peerRel := fmt.Sprint(settings.Get("storage.peer_cache_file"))
     peerPath := filepath.Join(baseDir, peerRel)
     logger.Log("DEBUG", "tapsync", "Peer cache file (absolute): "+peerPath)
 
@@ -87,9 +87,35 @@ func TapSync() {
             continue
         }
 
-        // 4b) Read their list
+        rdr := bufio.NewReader(conn)
         conn.SetReadDeadline(time.Now().Add(5 * time.Second))
-        incoming, err := bufio.NewReader(conn).ReadString('\n')
+
+        // 4b) Read ADDR frame
+        addrLine, err := rdr.ReadString('\n')
+        if err != nil {
+            logger.Log("ERROR", "tapsync", "Failed to read ADDR: "+err.Error())
+            continue
+        }
+        var extIP string
+        var extPort int
+        if _, err := fmt.Sscanf(addrLine, "ADDR %s %d\n", &extIP, &extPort); err == nil {
+            // Update our own peer entry
+            for i := range peers {
+                if peers[i].NodeID == selfID {
+                    peers[i].IPv4 = extIP
+                    peers[i].Port = extPort
+                    peers[i].LastSeen = time.Now().UTC().Format(time.RFC3339)
+                    break
+                }
+            }
+            savePeers(peerPath, peers)
+            logger.Log("INFO", "tapsync", fmt.Sprintf("Updated self external to %s:%d", extIP, extPort))
+        } else {
+            logger.Log("WARN", "tapsync", "Malformed ADDR frame: "+addrLine)
+        }
+
+        // 4c) Read peer's JSON list
+        incoming, err := rdr.ReadString('\n')
         if err != nil {
             logger.Log("ERROR", "tapsync", "Read error: "+err.Error())
             continue
@@ -101,24 +127,23 @@ func TapSync() {
         }
         logger.Log("INFO", "tapsync", fmt.Sprintf("Received %d peers", len(theirPeers)))
 
-        // 4c) Update our lastSeen
+        // 4d) Update our lastSeen on ourselves
         for i := range peers {
             if peers[i].NodeID == selfID {
                 peers[i].LastSeen = time.Now().UTC().Format(time.RFC3339)
+                break
             }
         }
+        savePeers(peerPath, peers)
 
-		// persist immediately:
-		savePeers(peerPath, peers)
-
-        // 4d) Send our list
+        // 4e) Send our list
         out, _ := json.Marshal(peers)
         conn.Write(out)
         conn.Write([]byte("\n"))
 
-        // 4e) Optionally read merged response
+        // 4f) Optionally read merged response
         conn.SetReadDeadline(time.Now().Add(5 * time.Second))
-        mergedResp, err := bufio.NewReader(conn).ReadString('\n')
+        mergedResp, err := rdr.ReadString('\n')
         if err == nil {
             var merged []PeerEntry
             if err := json.Unmarshal([]byte(mergedResp), &merged); err == nil {
