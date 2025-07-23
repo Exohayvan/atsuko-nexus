@@ -56,7 +56,7 @@ func Bootstrap() {
 	}
 
 	if len(peers) > 1 {
-		logger.Log("INFO", "nexus", fmt.Sprintf("Loaded %d peers.", len(peers)-1))
+		logger.Log("INFO", "nexus", fmt.Sprintf("Loaded %d peers.", (len(peers)-1)))
 		return
 	}
 
