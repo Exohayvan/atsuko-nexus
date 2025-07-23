@@ -162,25 +162,47 @@ func isPortListening(port int) bool {
 }
 
 // Try forwarding port via UPnP
-func tryUPnPForward(port int) {
-	devices, _, err := internetgateway1.NewWANIPConnection1Clients()
-	if err != nil || len(devices) == 0 {
-		logger.Log("WARN", "upnp", "UPnP device not found or error occurred.")
-		return
-	}
-	client := devices[0]
-	ip, err := getLocalIP()
-	if err != nil {
-		logger.Log("WARN", "upnp", "Failed to get local IP: "+err.Error())
-		return
-	}
-	desc := "Atsuko-Nexus Listener"
-	err = client.AddPortMapping("", uint16(port), "TCP", uint16(port), ip.String(), true, desc, 0)
-	if err != nil {
-		logger.Log("ERROR", "upnp", "UPnP port mapping failed: "+err.Error())
-		return
-	}
-	logger.Log("INFO", "upnp", fmt.Sprintf("Port %d successfully forwarded via UPnP", port))
+func tryUPnPForward(listenPort int) {
+    devices, _, err := internetgateway1.NewWANIPConnection1Clients()
+    if err != nil || len(devices) == 0 {
+        logger.Log("ERROR", "upnp", "No UPnP IGD found or error: "+err.Error())
+        return
+    }
+    client := devices[0]
+
+    // 1) Check your external WAN IP
+    extIP, err := client.GetExternalIPAddress()
+    if err != nil {
+        logger.Log("ERROR", "upnp", "GetExternalIPAddress failed: "+err.Error())
+    } else {
+        logger.Log("INFO", "upnp", "Router’s external IP: "+extIP)
+    }
+    
+	localIP, err := getLocalIP()
+    if err != nil {
+        logger.Log("WARN", "upnp", "Failed to get local IP: "+err.Error())
+        return
+    }
+    // 2) Request a permanent mapping
+    lease := uint32(0) // 0 = “infinite” (or router default)
+    if err := client.AddPortMapping(
+        "",                  // empty = wildcard
+        uint16(listenPort),  // external port on WAN side
+        "TCP",
+        uint16(listenPort),  // internal port on LAN side
+        localIP.String(),
+        true,
+        "Atsuko-Nexus",
+        lease,
+    ); err != nil {
+        logger.Log("ERROR", "upnp",
+          fmt.Sprintf("AddPortMapping(%d→%d) failed: %v",
+             listenPort, listenPort, err))
+        return
+    }
+    logger.Log("INFO", "upnp",
+        fmt.Sprintf("Successfully requested mapping WAN:%d→LAN:%d (lease %d)",
+          listenPort, listenPort, lease))
 }
 
 // Discover local network IP address
