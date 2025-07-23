@@ -4,8 +4,8 @@ package version
 
 // Current defines the current release version of the application.
 // This value should be updated manually before each release.
-var Current = "v1.3.12-alpha"
-var Future = "v1.3.12-alpha"
+var Current = "v1.3.15-alpha"
+var Future = "v1.3.15-alpha"
 
 // Get returns the current version string.
 // Use this function to programmatically access the application version.
