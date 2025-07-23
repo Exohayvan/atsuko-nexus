@@ -38,6 +38,7 @@ var (
 		"UPDATER":   lipgloss.NewStyle().Foreground(lipgloss.Color("#F5E050")),
 		"SETTINGS":  lipgloss.NewStyle().Foreground(lipgloss.Color("#40E0D0")),
         "TAPSYNC":  lipgloss.NewStyle().Foreground(lipgloss.Color("#55d3e7")),
+        "UI": lipgloss.NewStyle().Foreground(lipgloss.Color("#6937a3")),
 	}
 
 	// Config options
