@@ -1,4 +1,4 @@
-// Package updater handles fetching, downloading, and applying the latest release of the Atsuko Nexus binary from GitHub. 
+// Package updater handles fetching, downloading, and applying the latest release of the Atsuko Nexus binary from GitHub.
 // It compares the current version against available releases and applies an update if a newer version is found.
 package updater
 
@@ -16,15 +16,15 @@ import (
 
 	"atsuko-nexus/src/logger"
 	"atsuko-nexus/src/version"
+
+	"github.com/Masterminds/semver/v3"
 )
 
 const (
-	// GitHub repository owner and name used to fetch releases.
 	repoOwner = "Exohayvan"
 	repoName  = "atsuko-nexus"
 )
 
-// GitHubRelease represents a simplified structure of a GitHub API release response.
 type GitHubRelease struct {
 	TagName    string `json:"tag_name"`
 	Prerelease bool   `json:"prerelease"`
@@ -34,8 +34,6 @@ type GitHubRelease struct {
 	} `json:"assets"`
 }
 
-// RunUpdater checks for newer releases, downloads the latest binary if needed, and replaces the currently running executable.
-// It is designed to be safe, only applying updates if a newer version in the same channel (alpha/beta/stable) is found.
 func RunUpdater() {
 	logger.Log("INFO", "updater", "Checking for updates...")
 
@@ -58,7 +56,12 @@ func RunUpdater() {
 	}
 
 	latest := filtered[0]
-	if latest.TagName == currentVersion {
+
+	// Use semantic version comparison
+	currVer, err1 := semver.NewVersion(strings.TrimPrefix(currentVersion, "v"))
+	latestVer, err2 := semver.NewVersion(strings.TrimPrefix(latest.TagName, "v"))
+
+	if err1 == nil && err2 == nil && !latestVer.GreaterThan(currVer) {
 		logger.Log("INFO", "updater", "Already up to date: "+currentVersion)
 		return
 	}
@@ -87,17 +90,15 @@ func RunUpdater() {
 
 	if err := applyUpdate(tmpBin); err != nil {
 		logger.Log("ERROR", "updater", "Failed to apply update: "+err.Error())
-		fmt.Println("Failed to apply update: "+err.Error())
+		fmt.Println("Failed to apply update: " + err.Error())
 		return
 	}
 
 	logger.Log("INFO", "updater", "Update applied successfully. Please restart the application manually.")
-	time.Sleep(3 * time.Second) // Wait 3 seconds before exiting
+	time.Sleep(3 * time.Second)
 	os.Exit(0)
 }
 
-// detectChannel returns the update channel for a given version string.
-// Recognized channels: "alpha", "beta", or "stable" (default fallback).
 func detectChannel(version string) string {
 	version = strings.ToLower(version)
 	switch {
@@ -110,7 +111,6 @@ func detectChannel(version string) string {
 	}
 }
 
-// fetchAllReleases pulls all releases from the GitHub API and sorts them in descending order by tag name.
 func fetchAllReleases() ([]GitHubRelease, error) {
 	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases", repoOwner, repoName)
 	resp, err := http.Get(url)
@@ -124,14 +124,19 @@ func fetchAllReleases() ([]GitHubRelease, error) {
 		return nil, err
 	}
 
+	// Semantic version sort
 	sort.SliceStable(releases, func(i, j int) bool {
-		return releases[i].TagName > releases[j].TagName
+		vi, err1 := semver.NewVersion(strings.TrimPrefix(releases[i].TagName, "v"))
+		vj, err2 := semver.NewVersion(strings.TrimPrefix(releases[j].TagName, "v"))
+		if err1 != nil || err2 != nil {
+			return releases[i].TagName > releases[j].TagName
+		}
+		return vi.GreaterThan(vj)
 	})
 
 	return releases, nil
 }
 
-// filterReleasesByChannel filters the releases to include only those matching the current channel (e.g., alpha, beta, stable).
 func filterReleasesByChannel(all []GitHubRelease, channel string) []GitHubRelease {
 	var filtered []GitHubRelease
 	for _, r := range all {
@@ -154,8 +159,6 @@ func filterReleasesByChannel(all []GitHubRelease, channel string) []GitHubReleas
 	return filtered
 }
 
-// buildTargetName builds the expected asset name for the current OS and architecture.
-// For example, "atsuko-macos-arm64" or "atsuko-windows-amd64".
 func buildTargetName() string {
 	platform := runtime.GOOS
 	arch := runtime.GOARCH
@@ -164,10 +167,6 @@ func buildTargetName() string {
 	switch platform {
 	case "darwin":
 		platformLabel = "macos"
-	case "windows":
-		platformLabel = "windows"
-	case "linux":
-		platformLabel = "linux"
 	default:
 		platformLabel = platform
 	}
@@ -175,7 +174,6 @@ func buildTargetName() string {
 	return fmt.Sprintf("atsuko-%s-%s", platformLabel, arch)
 }
 
-// findAssetURL searches for the matching downloadable asset by name in a GitHub release.
 func findAssetURL(release *GitHubRelease, targetName string) string {
 	for _, asset := range release.Assets {
 		if strings.EqualFold(asset.Name, targetName) {
@@ -185,7 +183,6 @@ func findAssetURL(release *GitHubRelease, targetName string) string {
 	return ""
 }
 
-// downloadFile downloads a file from a URL and saves it to the specified local path.
 func downloadFile(filepath, url string) error {
 	resp, err := http.Get(url)
 	if err != nil {
@@ -203,8 +200,6 @@ func downloadFile(filepath, url string) error {
 	return err
 }
 
-// extractBinaryFromZip extracts the first file in a zip archive to a specified output path.
-// It assumes the archive contains a single executable binary.
 func extractBinaryFromZip(zipPath, outputPath string) error {
 	r, err := zip.OpenReader(zipPath)
 	if err != nil {
@@ -242,8 +237,6 @@ func extractBinaryFromZip(zipPath, outputPath string) error {
 	return nil
 }
 
-// applyUpdate replaces the currently running binary with the newly downloaded binary.
-// It renames the current binary as a backup and attempts to overwrite it.
 func applyUpdate(tempBinary string) error {
 	currentBinary, err := os.Executable()
 	if err != nil {
@@ -255,7 +248,7 @@ func applyUpdate(tempBinary string) error {
 
 	err = os.Rename(tempBinary, currentBinary)
 	if err != nil {
-		_ = os.Rename(backup, currentBinary) // rollback
+		_ = os.Rename(backup, currentBinary)
 		return err
 	}
 
