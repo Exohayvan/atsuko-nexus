@@ -192,12 +192,36 @@ func getLocalIP() (net.IP, error) {
 	return localAddr.IP, nil
 }
 
-// Merge two peer lists (newer timestamp wins)
+// mergePeers merges existing and incoming lists by taking the record with the newest LastSeen timestamp for each NodeID.
 func mergePeers(existing []PeerEntry, incoming []PeerEntry) []PeerEntry {
-	for _, newPeer := range incoming {
-		existing = upsertPeer(existing, newPeer)
-	}
-	return existing
+    // Start with a map for easy lookup
+    m := make(map[string]PeerEntry, len(existing))
+    for _, ex := range existing {
+        m[ex.NodeID] = ex
+    }
+
+    // For each incoming
+    for _, inc := range incoming {
+        if ex, ok := m[inc.NodeID]; ok {
+            // Compare timestamps
+            tEx  := parseTime(ex.LastSeen)
+            tInc := parseTime(inc.LastSeen)
+            if tInc.After(tEx) {
+                // Incoming is fresher: use it (updates IP/port too)
+                m[inc.NodeID] = inc
+            }
+        } else {
+            // New peer entirely
+            m[inc.NodeID] = inc
+        }
+    }
+
+    // Re-flatten map back into slice
+    merged := make([]PeerEntry, 0, len(m))
+    for _, p := range m {
+        merged = append(merged, p)
+    }
+    return merged
 }
 
 // Convert time string to time.Time safely

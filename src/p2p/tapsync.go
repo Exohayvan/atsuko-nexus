@@ -66,7 +66,7 @@ func TapSync() {
 
     for _, peer := range candidates {
         addr := net.JoinHostPort(peer.IPv4, fmt.Sprint(peer.Port))
-        logger.Log("DEBUG", "tapsync", "Dialing "+addr)
+        logger.Log("DEBUG", "tapsync", "Dialing "+peer.NodeID)
         conn, err := net.DialTimeout("tcp", addr, 5*time.Second)
         if err != nil {
             lastSeen := parseTime(peer.LastSeen)
