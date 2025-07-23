@@ -21,7 +21,7 @@ var (
 	mu   sync.Mutex
 
 	// Styles
-	timestampStyled = lipgloss.NewStyle().Foreground(lipgloss.Color("#676767")) // Dim Grey
+	timestampStyled = lipgloss.NewStyle().Foreground(lipgloss.Color("#676767"))
 	styleMap        = map[string]lipgloss.Style{
 		// Log levels
 		"INFO":    lipgloss.NewStyle().Foreground(lipgloss.Color("#00D8A7")),
@@ -37,6 +37,7 @@ var (
 		"NEXUS": lipgloss.NewStyle().Foreground(lipgloss.Color("#DA70D6")),
 		"UPDATER":   lipgloss.NewStyle().Foreground(lipgloss.Color("#F5E050")),
 		"SETTINGS":  lipgloss.NewStyle().Foreground(lipgloss.Color("#40E0D0")),
+        "TAPSYNC":  lipgloss.NewStyle().Foreground(lipgloss.Color("#55d3e7")),
 	}
 
 	// Config options
