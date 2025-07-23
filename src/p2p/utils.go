@@ -25,9 +25,11 @@ type PeerFile struct {
 // PeerEntry is a single peer record
 type PeerEntry struct {
 	NodeID   string `yaml:"node_id" json:"node_id"`
+	Type string `yaml:"type" json:"type"`
 	IPv4     string `yaml:"ipv4" json:"ipv4"`
 	IPv6     string `yaml:"ipv6" json:"ipv6"`
 	Port     int    `yaml:"port" json:"port"`
+	ExternalPort int `yaml:"external_port" json:"external_port"`
 	LastSeen string `yaml:"last_seen" json:"last_seen"`
 }
 
