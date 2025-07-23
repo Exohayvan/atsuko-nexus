@@ -82,11 +82,24 @@ func handleNexusConn(conn net.Conn) {
         }
         savePeers(peerPath, peers)
 
-        // 4b) Send our updated list
+        // 4b) Tell the client what addr/port we see for them:
+        if tcpAddr, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
+            fmt.Fprintf(conn, "ADDR %s %d\n",
+                tcpAddr.IP.String(),
+                tcpAddr.Port,
+            )
+            logger.Log("DEBUG", "tapsync",
+                fmt.Sprintf("Sent ADDR %s:%d", tcpAddr.IP, tcpAddr.Port),
+            )
+        }
+
+        // 4c) Now send our updated peer list
         out, _ := json.Marshal(peers)
         conn.Write(out)
         conn.Write([]byte("\n"))
-		logger.Log("INFO", "tapsync", fmt.Sprintf("Sent %d peers to %s", len(peers), conn.RemoteAddr()))
+        logger.Log("INFO", "tapsync",
+            fmt.Sprintf("Sent %d peers to %s", len(peers), conn.RemoteAddr()),
+        )
 
         // 4c) Read their list
         incoming, err := reader.ReadString('\n')
