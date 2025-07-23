@@ -72,6 +72,7 @@ func handleNexusConn(conn net.Conn) {
         conn.Write([]byte("\n"))
 
     case "SYNC":
+		logger.Log("INFO", "tapsync", fmt.Sprintf("Sync requested from peer %s", conn.RemoteAddr()))
         // 4a) Load, bump our LastSeen, persist
         peers := loadPeers(peerPath)
         for i := range peers {
@@ -85,6 +86,7 @@ func handleNexusConn(conn net.Conn) {
         out, _ := json.Marshal(peers)
         conn.Write(out)
         conn.Write([]byte("\n"))
+		logger.Log("INFO", "tapsync", fmt.Sprintf("Sent %d peers to %s", len(peers), conn.RemoteAddr()))
 
         // 4c) Read their list
         incoming, err := reader.ReadString('\n')
