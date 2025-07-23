@@ -36,47 +36,67 @@ func StartNexusListener() {
 }
 
 func handleNexusConn(conn net.Conn) {
-	defer conn.Close()
-	reader := bufio.NewReader(conn)
-	conn.SetReadDeadline(time.Now().Add(10 * time.Second))
-	msg, err := reader.ReadString('\n')
-	if err != nil || !strings.HasPrefix(msg, "PEERLIST") {
-		return
-	}
+    defer conn.Close()
+    reader := bufio.NewReader(conn)
+    conn.SetReadDeadline(time.Now().Add(10 * time.Second))
 
-	peerPath := fmt.Sprint(settings.Get("storage.peer_cache_file"))
-	peers := loadPeers(peerPath)
+    // Read the command ("PEERLIST\n" or "SYNC\n")
+    line, err := reader.ReadString('\n')
+    if err != nil {
+        return
+    }
+    cmd := strings.TrimSpace(line)
 
-	data, _ := json.Marshal(peers)
-	conn.Write(data)
-	conn.Write([]byte("\n")) // Ensure newline for client to read
+    // Common path: load our peers file
+    peerPath := fmt.Sprint(settings.Get("storage.peer_cache_file"))
 
-	if strings.HasPrefix(msg, "SYNC") {
-		peerPath := fmt.Sprint(settings.Get("storage.peer_cache_file"))
-		theirData, _ := bufio.NewReader(conn).ReadString('\n')
+    switch cmd {
+    case "PEERLIST":
+        // Just send our list
+        local := loadPeers(peerPath)
+        data, _ := json.Marshal(local)
+        conn.Write(data)
+        conn.Write([]byte("\n"))
 
-		var theirPeers []PeerEntry
-		if err := json.Unmarshal([]byte(theirData), &theirPeers); err != nil {
-			logger.Log("ERROR", "sync", "Invalid sync data from peer: "+err.Error())
-			return
-		}
+    case "SYNC":
+        // 1) Send our current list
+        local := loadPeers(peerPath)
+        data, _ := json.Marshal(local)
+        conn.Write(data)
+        conn.Write([]byte("\n"))
 
-		selfID := nodeid.GetNodeID()
-		ourPeers := loadPeers(peerPath)
-		for i := range ourPeers {
-			if ourPeers[i].NodeID == selfID {
-				ourPeers[i].LastSeen = time.Now().UTC().Format(time.RFC3339)
-			}
-		}
+        // 2) Read their list
+        incoming, err := reader.ReadString('\n')
+        if err != nil {
+            logger.Log("ERROR", "sync", "Failed to read incoming peers: "+err.Error())
+            return
+        }
+        var theirPeers []PeerEntry
+        if err := json.Unmarshal([]byte(incoming), &theirPeers); err != nil {
+            logger.Log("ERROR", "sync", "Invalid sync data: "+err.Error())
+            return
+        }
 
-		// Merge and save incoming peers
-		merged := mergePeers(ourPeers, theirPeers)
-		savePeers(peerPath, merged)
+        // 3) Update our own LastSeen
+        selfID := nodeid.GetNodeID()
+        ourPeers := loadPeers(peerPath)
+        for i := range ourPeers {
+            if ourPeers[i].NodeID == selfID {
+                ourPeers[i].LastSeen = time.Now().UTC().Format(time.RFC3339)
+            }
+        }
 
-		// Reply with our list
-		resp, _ := json.Marshal(merged)
-		conn.Write(resp)
-		conn.Write([]byte("\n"))
-		return
-	}
+        // 4) Merge & save
+        merged := mergePeers(ourPeers, theirPeers)
+        savePeers(peerPath, merged)
+
+        // 5) Send merged list back
+        resp, _ := json.Marshal(merged)
+        conn.Write(resp)
+        conn.Write([]byte("\n"))
+
+    default:
+        // unknown command: do nothing
+        return
+    }
 }
