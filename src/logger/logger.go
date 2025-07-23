@@ -34,7 +34,7 @@ var (
 		"MAIN":      lipgloss.NewStyle().Foreground(lipgloss.Color("#D8CB00")),
 		"NODEID":    lipgloss.NewStyle().Foreground(lipgloss.Color("#C7F5C1")),
 		"UPNP":      lipgloss.NewStyle().Foreground(lipgloss.Color("#00BFFF")),
-		"BOOTSTRAP": lipgloss.NewStyle().Foreground(lipgloss.Color("#DA70D6")),
+		"NEXUS": lipgloss.NewStyle().Foreground(lipgloss.Color("#DA70D6")),
 		"UPDATER":   lipgloss.NewStyle().Foreground(lipgloss.Color("#F5E050")),
 		"SETTINGS":  lipgloss.NewStyle().Foreground(lipgloss.Color("#40E0D0")),
 	}

@@ -57,13 +57,13 @@ func Bootstrap() {
 	// Check if listener is active
 	time.Sleep(500 * time.Millisecond)
 	if isPortListening(port) {
-		logger.Log("INFO", "bootstrap", fmt.Sprintf("Confirmed listener active on port %d", port))
+		logger.Log("INFO", "nexus", fmt.Sprintf("Confirmed listener active on port %d", port))
 	} else {
-		logger.Log("WARN", "bootstrap", fmt.Sprintf("No active listener detected on port %d", port))
+		logger.Log("WARN", "nexus", fmt.Sprintf("No active listener detected on port %d", port))
 	}
 
 	if len(peers) > 1 {
-		logger.Log("INFO", "bootstrap", fmt.Sprintf("Loaded %d peers.", len(peers)))
+		logger.Log("INFO", "nexus", fmt.Sprintf("Loaded %d peers.", len(peers)-1))
 		return
 	}
 
@@ -78,12 +78,12 @@ func Bootstrap() {
 		input = strings.TrimSpace(input)
 
 		if input == "search" {
-			logger.Log("INFO", "bootstrap", "Search mode initiated (not yet implemented).")
+			logger.Log("INFO", "nexus", "Search mode initiated (not yet implemented).")
 			break
 		}
 
 		if isValidPeer(input) {
-			logger.Log("INFO", "bootstrap", "Connecting to peer: "+input)
+			logger.Log("INFO", "nexus", "Connecting to peer: "+input)
 			remotePeers := fetchPeerListTCP(input)
 			for _, rp := range remotePeers {
 				peers = upsertPeer(peers, rp)
@@ -96,18 +96,18 @@ func Bootstrap() {
 	}
 }
 
-// StartBootstrapListener runs a TCP server that responds to PEERLIST\n requests
-func StartBootstrapListener() {
+// Runs a TCP server that responds to PEERLIST\n requests
+func StartNexusListener() {
 	port := settings.Get("network.listen_port").(int)
 	listenAddr := fmt.Sprintf("0.0.0.0:%d", port)
 
 	go func() {
 		ln, err := net.Listen("tcp", listenAddr)
 		if err != nil {
-			logger.Log("ERROR", "bootstrap", "Failed to start listener: "+err.Error())
+			logger.Log("ERROR", "nexus", "Failed to start listener: "+err.Error())
 			return
 		}
-		logger.Log("INFO", "bootstrap", "Listening for bootstrap connections on "+listenAddr)
+		logger.Log("INFO", "nexus", "Listening for bootstrap connections on "+listenAddr)
 
 		for {
 			conn, err := ln.Accept()
@@ -160,28 +160,30 @@ func fetchPublicIP(apiURL string) string {
 func fetchPeerListTCP(addr string) []PeerEntry {
 	conn, err := net.DialTimeout("tcp", addr, 5*time.Second)
 	if err != nil {
-		logger.Log("ERROR", "bootstrap", "Failed to connect to "+addr+": "+err.Error())
+		logger.Log("ERROR", "nexus", "Failed to connect to "+addr+": "+err.Error())
 		return nil
 	}
 	defer conn.Close()
 
 	_, err = conn.Write([]byte("PEERLIST\n"))
 	if err != nil {
-		logger.Log("ERROR", "bootstrap", "Failed to send request: "+err.Error())
+		logger.Log("ERROR", "nexus", "Failed to send request: "+err.Error())
 		return nil
 	}
 
 	conn.SetReadDeadline(time.Now().Add(5 * time.Second))
 	resp, err := bufio.NewReader(conn).ReadString('\n')
 	if err != nil {
-		logger.Log("ERROR", "bootstrap", "Failed to read response: "+err.Error())
+		logger.Log("ERROR", "nexus", "Failed to read response: "+err.Error())
 		return nil
 	}
 
 	var peers []PeerEntry
 	if err := json.Unmarshal([]byte(resp), &peers); err != nil {
-		logger.Log("ERROR", "bootstrap", "Invalid peer format: "+err.Error())
+		logger.Log("ERROR", "nexus", "Invalid peer format: "+err.Error())
+		return nil
 	}
+	logger.Log("INFO", "nexus", "Peer list received from "+addr)
 	return peers
 }
 
@@ -200,9 +202,9 @@ func loadPeers(path string) []PeerEntry {
 func savePeers(path string, peers []PeerEntry) {
 	// Check if a folder exists where the file should be
 	if fi, err := os.Stat(path); err == nil && fi.IsDir() {
-		logger.Log("WARN", "bootstrap", fmt.Sprintf("A directory named '%s' exists — removing to save file properly.", path))
+		logger.Log("WARN", "nexus", fmt.Sprintf("A directory named '%s' exists — removing to save file properly.", path))
 		if err := os.RemoveAll(path); err != nil {
-			logger.Log("ERROR", "bootstrap", fmt.Sprintf("Failed to remove directory '%s': %v", path, err))
+			logger.Log("ERROR", "nexus", fmt.Sprintf("Failed to remove directory '%s': %v", path, err))
 			return
 		}
 	}
@@ -210,25 +212,25 @@ func savePeers(path string, peers []PeerEntry) {
 	// Ensure the parent directory exists
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
-		logger.Log("ERROR", "bootstrap", fmt.Sprintf("Failed to create directory '%s': %v", dir, err))
+		logger.Log("ERROR", "nexus", fmt.Sprintf("Failed to create directory '%s': %v", dir, err))
 		return
 	}
 
 	// Marshal YAML
 	data, err := yaml.Marshal(PeerFile{Peers: peers})
 	if err != nil {
-		logger.Log("ERROR", "bootstrap", "Failed to encode peers: "+err.Error())
+		logger.Log("ERROR", "nexus", "Failed to encode peers: "+err.Error())
 		return
 	}
 
 	// Save file
 	err = os.WriteFile(path, data, 0644)
 	if err != nil {
-		logger.Log("ERROR", "bootstrap", fmt.Sprintf("Failed to save peer file to '%s': %v", path, err))
+		logger.Log("ERROR", "nexus", fmt.Sprintf("Failed to save peer file to '%s': %v", path, err))
 		return
 	}
 
-	logger.Log("INFO", "bootstrap", fmt.Sprintf("Successfully saved peers to '%s'", path))
+	logger.Log("DEBUG", "nexus", fmt.Sprintf("Successfully saved peers.yaml to '%s'", path))
 }
 
 func upsertPeer(list []PeerEntry, new PeerEntry) []PeerEntry {
@@ -270,7 +272,7 @@ func tryUPnPForward(port int) {
 		logger.Log("WARN", "upnp", "Failed to get local IP: "+err.Error())
 		return
 	}
-	desc := "Atsuko-Nexus Bootstrap Listener"
+	desc := "Atsuko-Nexus Listener"
 
 	err = client.AddPortMapping("", uint16(port), "TCP", uint16(port), ip.String(), true, desc, 0)
 	if err != nil {

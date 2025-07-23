@@ -21,7 +21,7 @@ func main() {
 	logger.Log("INFO", "MAIN", "Script started with ID: "+nodeID)
 
 	// Start Bootstrap Listener
-	p2p.StartBootstrapListener()
+	p2p.StartNexusListener()
 
 	// Start Bootstrap
 	p2p.Bootstrap()
