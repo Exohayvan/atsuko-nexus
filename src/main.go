@@ -36,7 +36,6 @@ func main() {
 	}()
 	go func() {
 		for {
-			logger.Log("DEBUG", "TAPSYNC", "Running TapSync")
 			p2p.TapSync()
 			time.Sleep(1 * time.Minute)
 		}
