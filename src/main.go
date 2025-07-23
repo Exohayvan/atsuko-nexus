@@ -34,7 +34,13 @@ func main() {
 			time.Sleep(5 * time.Minute)
 		}
 	}()
-
+	go func() {
+		for {
+			logger.Log("DEBUG", "TAPSYNC", "Running TapSync")
+			p2p.TapSync()
+			time.Sleep(1 * time.Minute)
+		}
+	}()
 	// Start the terminal user interface.
 	// This call blocks the main thread until the UI exits.
 	ui.Start(nodeID)

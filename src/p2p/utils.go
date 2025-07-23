@@ -84,16 +84,19 @@ func fetchPeerListTCP(addr string) []PeerEntry {
 
 // Load peer list from YAML file
 func loadPeers(path string) []PeerEntry {
-	var pf PeerFile
 	data, err := os.ReadFile(path)
 	if err != nil {
+		logger.Log("ERROR", "peers", fmt.Sprintf("Failed to read peer file at %s: %v", path, err))
 		return []PeerEntry{}
 	}
+	var pf PeerFile
 	if err := yaml.Unmarshal(data, &pf); err != nil {
+		logger.Log("ERROR", "peers", "Failed to unmarshal peer file: "+err.Error())
 		return []PeerEntry{}
 	}
 	return pf.Peers
 }
+
 
 // Save peer list to YAML file
 func savePeers(path string, peers []PeerEntry) {
