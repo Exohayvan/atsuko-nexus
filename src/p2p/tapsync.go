@@ -103,7 +103,7 @@ func TapSync() {
             for i := range peers {
                 if peers[i].NodeID == selfID {
                     peers[i].IPv4 = extIP
-                    peers[i].Port = extPort
+                    peers[i].ExternalPort = extPort
                     peers[i].LastSeen = time.Now().UTC().Format(time.RFC3339)
                     break
                 }
