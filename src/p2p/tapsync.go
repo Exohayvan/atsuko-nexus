@@ -18,6 +18,7 @@ import (
 var (
 	staletime = 24 * time.Hour
 )
+
 func TapSync() {
     logger.Log("DEBUG", "tapsync", "Running TapSync")
 
@@ -106,6 +107,9 @@ func TapSync() {
                 peers[i].LastSeen = time.Now().UTC().Format(time.RFC3339)
             }
         }
+
+		// persist immediately:
+		savePeers(peerPath, peers)
 
         // 4d) Send our list
         out, _ := json.Marshal(peers)
