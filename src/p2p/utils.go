@@ -29,7 +29,6 @@ type PeerEntry struct {
 	IPv4     string `yaml:"ipv4" json:"ipv4"`
 	IPv6     string `yaml:"ipv6" json:"ipv6"`
 	Port     int    `yaml:"port" json:"port"`
-	ExternalPort int `yaml:"external_port" json:"external_port"`
 	LastSeen string `yaml:"last_seen" json:"last_seen"`
 }
 

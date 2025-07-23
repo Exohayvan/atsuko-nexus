@@ -22,7 +22,7 @@ var (
 func TapSync() {
     logger.Log("DEBUG", "tapsync", "Running TapSync")
 
-    // — make peerPath absolute —
+    // Resolve peerCache path
     exe, err := os.Executable()
     if err != nil {
         logger.Log("ERROR", "tapsync", "os.Executable failed: "+err.Error())
@@ -36,9 +36,6 @@ func TapSync() {
     // 1) Load peers
     peers := loadPeers(peerPath)
     logger.Log("DEBUG", "tapsync", fmt.Sprintf("Loaded %d peers", len(peers)))
-    for i, p := range peers {
-        logger.Log("DEBUG", "tapsync", fmt.Sprintf("  peer[%d]=%+v", i, p))
-    }
 
     // 2) Filter out self & invalid IPs
     selfID := nodeid.GetNodeID()
@@ -90,34 +87,10 @@ func TapSync() {
         rdr := bufio.NewReader(conn)
         conn.SetReadDeadline(time.Now().Add(5 * time.Second))
 
-        // 4b) Read ADDR frame
-        addrLine, err := rdr.ReadString('\n')
-        if err != nil {
-            logger.Log("ERROR", "tapsync", "Failed to read ADDR: "+err.Error())
-            continue
-        }
-        var extIP string
-        var extPort int
-        if _, err := fmt.Sscanf(addrLine, "ADDR %s %d\n", &extIP, &extPort); err == nil {
-            // Update our own peer entry
-            for i := range peers {
-                if peers[i].NodeID == selfID {
-                    peers[i].IPv4 = extIP
-                    peers[i].ExternalPort = extPort
-                    peers[i].LastSeen = time.Now().UTC().Format(time.RFC3339)
-                    break
-                }
-            }
-            savePeers(peerPath, peers)
-            logger.Log("INFO", "tapsync", fmt.Sprintf("Updated self external to %s:%d", extIP, extPort))
-        } else {
-            logger.Log("WARN", "tapsync", "Malformed ADDR frame: "+addrLine)
-        }
-
-        // 4c) Read peer's JSON list
+        // 4b) Read their peer list
         incoming, err := rdr.ReadString('\n')
         if err != nil {
-            logger.Log("ERROR", "tapsync", "Read error: "+err.Error())
+            logger.Log("ERROR", "tapsync", "Failed to read peers: "+err.Error())
             continue
         }
         var theirPeers []PeerEntry
@@ -127,7 +100,7 @@ func TapSync() {
         }
         logger.Log("INFO", "tapsync", fmt.Sprintf("Received %d peers", len(theirPeers)))
 
-        // 4d) Update our lastSeen on ourselves
+        // 4c) Bump our LastSeen and save
         for i := range peers {
             if peers[i].NodeID == selfID {
                 peers[i].LastSeen = time.Now().UTC().Format(time.RFC3339)
@@ -136,12 +109,12 @@ func TapSync() {
         }
         savePeers(peerPath, peers)
 
-        // 4e) Send our list
+        // 4d) Send our updated list
         out, _ := json.Marshal(peers)
         conn.Write(out)
         conn.Write([]byte("\n"))
 
-        // 4f) Optionally read merged response
+        // 4e) Read merged response
         conn.SetReadDeadline(time.Now().Add(5 * time.Second))
         mergedResp, err := rdr.ReadString('\n')
         if err == nil {
