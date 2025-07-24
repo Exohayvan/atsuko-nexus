@@ -54,35 +54,55 @@ func handleNexusConn(conn net.Conn) {
     peerPath := fmt.Sprint(settings.Get("storage.peer_cache_file"))
     selfID   := nodeid.GetNodeID()
 
-    switch cmd {
+    // 3) Fetch our current public IPs and port
+    ipv4 := fetchPublicIP("https://api.ipify.org")
+    rawIP := fetchPublicIP("https://api64.ipify.org")
+    parsed := net.ParseIP(rawIP)
+    var ipv6 string
+    if parsed != nil && parsed.To4() == nil {
+        ipv6 = parsed.String()
+    }
+    port := settings.Get("network.listen_port").(int)
 
+    switch cmd {
     case "PEERLIST":
-        // 3a) Load, bump our LastSeen, persist
+        // load peers
         peers := loadPeers(peerPath)
+
+        // update our own entry
         for i := range peers {
             if peers[i].NodeID == selfID {
                 peers[i].LastSeen = time.Now().UTC().Format(time.RFC3339)
+                peers[i].IPv4     = ipv4
+                peers[i].IPv6     = ipv6
+                peers[i].Port     = port
             }
         }
         savePeers(peerPath, peers)
 
-        // 3b) Send our updated list
+        // send updated list
         data, _ := json.Marshal(peers)
         conn.Write(data)
         conn.Write([]byte("\n"))
 
     case "SYNC":
-		logger.Log("INFO", "tapsync", fmt.Sprintf("Sync requested from peer %s", conn.RemoteAddr()))
-        // 4a) Load, bump our LastSeen, persist
+        logger.Log("INFO", "tapsync", fmt.Sprintf("Sync requested from peer %s", conn.RemoteAddr()))
+
+        // load peers
         peers := loadPeers(peerPath)
+
+        // update our own entry
         for i := range peers {
             if peers[i].NodeID == selfID {
                 peers[i].LastSeen = time.Now().UTC().Format(time.RFC3339)
+                peers[i].IPv4     = ipv4
+                peers[i].IPv6     = ipv6
+                peers[i].Port     = port
             }
         }
         savePeers(peerPath, peers)
 
-        // 4b) Now send our updated peer list
+        // send our updated list
         out, _ := json.Marshal(peers)
         conn.Write(out)
         conn.Write([]byte("\n"))
@@ -90,7 +110,7 @@ func handleNexusConn(conn net.Conn) {
             fmt.Sprintf("Sent %d peers to %s", len(peers), conn.RemoteAddr()),
         )
 
-        // 4c) Read their list
+        // read their list
         incoming, err := reader.ReadString('\n')
         if err != nil {
             logger.Log("ERROR", "sync", "Failed to read incoming peers: "+err.Error())
@@ -102,10 +122,11 @@ func handleNexusConn(conn net.Conn) {
             return
         }
 
-        // 4d) Merge, save, and reply with the merged set
+        // merge and persist
         merged := mergePeers(peers, theirPeers)
         savePeers(peerPath, merged)
 
+        // reply with merged set
         resp, _ := json.Marshal(merged)
         conn.Write(resp)
         conn.Write([]byte("\n"))
