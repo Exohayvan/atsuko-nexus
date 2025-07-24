@@ -11,6 +11,7 @@ import (
     "atsuko-nexus/src/logger"
     "atsuko-nexus/src/nodeid"
     "atsuko-nexus/src/settings"
+    "atsuko-nexus/src/types"
 )
 
 // StartNexusListener spins up your TCP listener and dispatches incoming connections.
@@ -39,33 +40,31 @@ func StartNexusListener() {
 // handleNexusConn processes either a PEERLIST or SYNC command.
 func handleNexusConn(conn net.Conn) {
     defer conn.Close()
-
     reader := bufio.NewReader(conn)
     conn.SetReadDeadline(time.Now().Add(10 * time.Second))
 
-    // 1) Read the incoming command
+    // 1) Read incoming command
     line, err := reader.ReadString('\n')
     if err != nil {
         return
     }
     cmd := strings.TrimSpace(line)
 
-    // 2) Prep common values
+    // 2) Common values
     peerPath := fmt.Sprint(settings.Get("storage.peer_cache_file"))
     selfID   := nodeid.GetNodeID()
+    localType := types.NodeType()                               // <-- determine your node’s role once
 
-    // 3) Fetch our current public IPs and port
-    ipv4 := fetchPublicIP("https://api.ipify.org")
+    // 3) Fetch our current public IPs
+    ipv4  := fetchPublicIP("https://api.ipify.org")
     rawIP := fetchPublicIP("https://api64.ipify.org")
 
-    // default to "none" unless we really have an IPv6
     ipv6 := "none"
     if rawIP != ipv4 {
         if parsed := net.ParseIP(rawIP); parsed != nil && parsed.To4() == nil {
             ipv6 = parsed.String()
         }
     }
-
     port := settings.Get("network.listen_port").(int)
 
     switch cmd {
@@ -73,10 +72,11 @@ func handleNexusConn(conn net.Conn) {
         peers := loadPeers(peerPath)
         for i := range peers {
             if peers[i].NodeID == selfID {
-                peers[i].LastSeen = time.Now().UTC().Format(time.RFC3339)
+                peers[i].Type     = localType                      // <-- update Type
                 peers[i].IPv4     = ipv4
-                peers[i].IPv6     = ipv6  // now "none" when no IPv6
+                peers[i].IPv6     = ipv6
                 peers[i].Port     = port
+                peers[i].LastSeen = time.Now().UTC().Format(time.RFC3339)
             }
         }
         savePeers(peerPath, peers)
@@ -88,9 +88,11 @@ func handleNexusConn(conn net.Conn) {
     case "SYNC":
         logger.Log("INFO", "tapsync", fmt.Sprintf("Sync requested from peer %s", conn.RemoteAddr()))
 
+        // 1) Update our own entry before sending
         peers := loadPeers(peerPath)
         for i := range peers {
             if peers[i].NodeID == selfID {
+                peers[i].Type     = localType                      // <-- update Type
                 peers[i].LastSeen = time.Now().UTC().Format(time.RFC3339)
                 peers[i].IPv4     = ipv4
                 peers[i].IPv6     = ipv6
@@ -99,6 +101,7 @@ func handleNexusConn(conn net.Conn) {
         }
         savePeers(peerPath, peers)
 
+        // 2) Send out our list
         out, _ := json.Marshal(peers)
         conn.Write(out)
         conn.Write([]byte("\n"))
@@ -106,6 +109,7 @@ func handleNexusConn(conn net.Conn) {
             fmt.Sprintf("Sent %d peers to %s", len(peers), conn.RemoteAddr()),
         )
 
+        // 3) Read their list back
         incoming, err := reader.ReadString('\n')
         if err != nil {
             logger.Log("ERROR", "sync", "Failed to read incoming peers: "+err.Error())
@@ -117,6 +121,7 @@ func handleNexusConn(conn net.Conn) {
             return
         }
 
+        // 4) Merge—including each peer’s Type from their payload—and persist
         merged := mergePeers(peers, theirPeers)
         savePeers(peerPath, merged)
 
