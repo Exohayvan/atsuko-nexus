@@ -5,20 +5,26 @@ package main
 import (
 	"atsuko-nexus/src/logger"
 	"atsuko-nexus/src/nodeid"
+	"atsuko-nexus/src/p2p"
 	"atsuko-nexus/src/ui"
 	"atsuko-nexus/src/updater"
-	"atsuko-nexus/src/p2p"
 	"time"
+
+	"atsuko-nexus/src/types"
 )
 
 // main initializes the node and begins execution.
 // It starts the updater in a separate goroutine to run every 10 minutes while the main thread runs the interactive user interface.
 func main() {
+	//Commented to prevent the node from generating new keys, just left incase admin needs new keys
+	//types.GenKey()
+	role := types.NodeType()
 	// Generate a unique Node ID based on system-specific data
 	nodeID := nodeid.GetNodeID()
 
 	// Log the startup event with the generated Node ID
 	logger.Log("INFO", "MAIN", "Script started with ID: "+nodeID)
+	logger.Log("INFO", "MAIN", "Role is: "+role)
 
 	// Start Bootstrap Listener
 	p2p.StartNexusListener()
