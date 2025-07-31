@@ -13,6 +13,7 @@ import (
 	"atsuko-nexus/src/logger"
 	"atsuko-nexus/src/nodeid"
 	"atsuko-nexus/src/settings"
+	"atsuko-nexus/src/types"
 )
 
 // Bootstrap initializes peer list, adds self, and optionally connects to a bootstrap node
@@ -34,8 +35,10 @@ func Bootstrap() {
 		ipv6 = "none"
 	}
 
+	localType := types.NodeType()
 	self := PeerEntry{
 		NodeID:   id,
+		Type: localType,
 		IPv4:     ipv4,
 		IPv6:     ipv6,
 		Port:     port,
