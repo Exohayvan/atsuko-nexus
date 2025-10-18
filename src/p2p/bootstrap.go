@@ -1,16 +1,16 @@
 package p2p
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"time"
-	"os"
-	"bufio"
 
 	"atsuko-nexus/src/logger"
 	"atsuko-nexus/src/nodeid"
@@ -219,39 +219,40 @@ func buildSelfPeerEntry() PeerEntry {
 		LastSeen: time.Now().UTC().Format(time.RFC3339),
 	}
 
-	info := peer.AddrInfo{
-		ID:    libp2pHost.ID(),
-		Addrs: libp2pHost.Addrs(),
-	}
-
+	info := peer.AddrInfo{ID: libp2pHost.ID(), Addrs: libp2pHost.Addrs()}
 	if maddrs, err := peer.AddrInfoToP2pAddrs(&info); err == nil {
 		entry.Multiaddrs = multiaddrStrings(maddrs)
 	} else {
-		entry.Multiaddrs = []string{}
 		logger.Log("WARN", "p2p", "Failed to get local multiaddrs: "+err.Error())
 	}
 
-	// Ensure public IP multiaddr is included
-	publicIP := fetchPublicIP("https://api.ipify.org")
-	port := listenPortFromAddrs(libp2pHost.Addrs())
-	peerID := libp2pHost.ID().String()
-
-	if publicIP == "" {
-		logger.Log("WARN", "p2p", "No public IP detected from ipify")
-	} else if port == 0 {
-		logger.Log("WARN", "p2p", "Could not extract listen port from multiaddrs")
+	ipv4 := fetchPublicIP("https://api.ipify.org")
+	if ipv4 != "" {
+		entry.IPv4 = ipv4
 	} else {
-		publicMaddr := fmt.Sprintf("/ip4/%s/tcp/%d/p2p/%s", publicIP, port, peerID)
-		logger.Log("DEBUG", "p2p", "Adding public multiaddr: "+publicMaddr)
-
-		// Always append, even if similar IP exists
-		entry.Multiaddrs = append(entry.Multiaddrs, publicMaddr)
+		logger.Log("WARN", "p2p", "No public IPv4 detected from ipify")
 	}
 
-
-		preparePeerEntry(&entry)
-		return entry
+	ipv6 := fetchPublicIP("https://api64.ipify.org")
+	if ipv6 != "" {
+		entry.IPv6 = ipv6
+	} else {
+		entry.IPv6 = "none"
 	}
+
+	port := listenPortFromAddrs(libp2pHost.Addrs())
+	extra := make([]string, 0, 2)
+	if entry.IPv4 != "" && port != 0 {
+		extra = append(extra, fmt.Sprintf("/ip4/%s/tcp/%d/p2p/%s", entry.IPv4, port, entry.PeerID))
+	}
+	if entry.IPv6 != "" && entry.IPv6 != "none" && port != 0 {
+		extra = append(extra, fmt.Sprintf("/ip6/%s/tcp/%d/p2p/%s", entry.IPv6, port, entry.PeerID))
+	}
+
+	entry.Multiaddrs = mergeMultiaddrs(entry.Multiaddrs, extra)
+	preparePeerEntry(&entry)
+	return entry
+}
 
 func hostAddrs() []string {
 	if libp2pHost == nil {
