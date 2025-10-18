@@ -1,136 +1,141 @@
 package p2p
 
 import (
-    "bufio"
-    "encoding/json"
-    "fmt"
-    "math/rand"
-    "net"
-    "os"
-    "path/filepath"
-    "time"
+	"bufio"
+	"context"
+	"encoding/json"
+	"fmt"
+	"time"
 
-    "atsuko-nexus/src/logger"
-    "atsuko-nexus/src/nodeid"
-    "atsuko-nexus/src/settings"
-)
-
-var (
-    staletime = 24 * time.Hour
+	"atsuko-nexus/src/logger"
+	discopt "github.com/libp2p/go-libp2p/core/discovery"
+	"github.com/libp2p/go-libp2p/core/peer"
 )
 
 func TapSync() {
-    logger.Log("DEBUG", "tapsync", "Running TapSync")
+	if err := ensureHost(); err != nil {
+		logger.Log("ERROR", "tapsync", "libp2p host unavailable: "+err.Error())
+		return
+	}
 
-    // Resolve peerCache path
-    exe, err := os.Executable()
-    if err != nil {
-        logger.Log("ERROR", "tapsync", "os.Executable failed: "+err.Error())
-        return
-    }
-    baseDir := filepath.Dir(exe)
-    peerRel := fmt.Sprint(settings.Get("storage.peer_cache_file"))
-    peerPath := filepath.Join(baseDir, peerRel)
-    logger.Log("DEBUG", "tapsync", "Peer cache file (absolute): "+peerPath)
+	knownBefore := getKnownPeers()
+	logger.Log("DEBUG", "tapsync", fmt.Sprintf("TapSync start; known peers=%d", len(knownBefore)))
 
-    // 1) Load peers
-    peers := loadPeers(peerPath)
-    logger.Log("DEBUG", "tapsync", fmt.Sprintf("Loaded %d peers", len(peers)))
+	ctx, cancel := context.WithTimeout(baseCtx, time.Duration(intFromSettings("network.peer_discovery_interval", 60))*time.Second)
+	defer cancel()
 
-    // 2) Filter out self & invalid IPs
-    selfID := nodeid.GetNodeID()
-    var candidates []PeerEntry
-    for _, p := range peers {
-        if p.NodeID == selfID {
-            continue
-        }
-        if net.ParseIP(p.IPv4) == nil {
-            logger.Log("WARN", "tapsync", fmt.Sprintf("Skipping peer %s (invalid IPv4 %s)", p.NodeID, p.IPv4))
-            continue
-        }
-        candidates = append(candidates, p)
-    }
-    logger.Log("DEBUG", "tapsync", fmt.Sprintf("Found %d candidate peers", len(candidates)))
-    if len(candidates) == 0 {
-        logger.Log("WARN", "tapsync", "No other peers to sync with.")
-        return
-    }
+	ns := rendezvousNamespace()
+	peerCh, err := discovery.FindPeers(ctx, ns, discopt.Limit(intFromSettings("network.max_peers", 100)))
+	if err != nil {
+		logger.Log("WARN", "tapsync", fmt.Sprintf("FindPeers failed: %v", err))
+		return
+	}
 
-    // 3) Shuffle and try each
-    rand.Shuffle(len(candidates), func(i, j int) {
-        candidates[i], candidates[j] = candidates[j], candidates[i]
-    })
+	attempts := 0
+	for p := range peerCh {
+		if p.ID == libp2pHost.ID() {
+			continue
+		}
+		attempts++
+		if err := connectAndExchange(ctx, p); err != nil {
+			logger.Log("DEBUG", "tapsync", fmt.Sprintf("DHT sync with %s failed: %v", p.ID.ShortString(), err))
+			continue
+		}
+		logger.Log("DEBUG", "tapsync", fmt.Sprintf("DHT sync with %s succeeded", p.ID.ShortString()))
+	}
+	logger.Log("DEBUG", "tapsync", fmt.Sprintf("DHT sync attempts completed; tried %d peers", attempts))
 
-    for _, peer := range candidates {
-        addr := net.JoinHostPort(peer.IPv4, fmt.Sprint(peer.Port))
-        logger.Log("DEBUG", "tapsync", "Dialing "+peer.NodeID)
-        conn, err := net.DialTimeout("tcp", addr, 5*time.Second)
-        if err != nil {
-            lastSeen := parseTime(peer.LastSeen)
-            if time.Since(lastSeen) > staletime {
-                logger.Log("INFO", "tapsync", fmt.Sprintf("Peer %s stale; removing.", peer.NodeID))
-                peers = removePeer(peers, peer.NodeID)
-                savePeers(peerPath, peers)
-            } else {
-                logger.Log("WARN", "tapsync", fmt.Sprintf("Peer %s unreachable; skipping.", peer.NodeID))
-            }
-            continue
-        }
-        defer conn.Close()
+	knownCtx, knownCancel := context.WithTimeout(baseCtx, 30*time.Second)
+	defer knownCancel()
+	syncWithKnownPeers(knownCtx)
 
-        // 4a) Send SYNC
-        if _, err := conn.Write([]byte("SYNC\n")); err != nil {
-            logger.Log("ERROR", "tapsync", "Failed to send SYNC: "+err.Error())
-            continue
-        }
+	refreshSelfEntry()
+	logger.Log("DEBUG", "tapsync", fmt.Sprintf("TapSync complete; known peers=%d", len(getKnownPeers())))
+}
 
-        rdr := bufio.NewReader(conn)
-        conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+func connectAndExchange(parent context.Context, info peer.AddrInfo) error {
+	ctx, cancel := context.WithTimeout(parent, 20*time.Second)
+	defer cancel()
 
-        // 4b) Read their peer list
-        incoming, err := rdr.ReadString('\n')
-        if err != nil {
-            logger.Log("ERROR", "tapsync", "Failed to read peers: "+err.Error())
-            continue
-        }
-        var theirPeers []PeerEntry
-        if err := json.Unmarshal([]byte(incoming), &theirPeers); err != nil {
-            logger.Log("ERROR", "tapsync", "JSON unmarshal error: "+err.Error())
-            continue
-        }
-        logger.Log("INFO", "tapsync", fmt.Sprintf("Received %d peers", len(theirPeers)))
+	if err := libp2pHost.Connect(ctx, info); err != nil {
+		return err
+	}
+	logger.Log("DEBUG", "tapsync", fmt.Sprintf("Initiating sync with %s", info.ID.ShortString()))
 
-        // 4c) Bump our LastSeen and save
-        for i := range peers {
-            if peers[i].NodeID == selfID {
-                peers[i].LastSeen = time.Now().UTC().Format(time.RFC3339)
-                break
-            }
-        }
-        savePeers(peerPath, peers)
+	stream, err := libp2pHost.NewStream(ctx, info.ID, protocolID)
+	if err != nil {
+		return err
+	}
+	defer stream.Close()
 
-        // 4d) Send our updated list
-        out, _ := json.Marshal(peers)
-        conn.Write(out)
-        conn.Write([]byte("\n"))
+	refreshSelfEntry()
+	localPeers := mergePeers(getKnownPeers(), []PeerEntry{buildSelfPeerEntry()})
+	logger.Log("DEBUG", "tapsync", fmt.Sprintf("Sending %d peers to %s", len(localPeers), info.ID.ShortString()))
 
-        // 4e) Read merged response
-        conn.SetReadDeadline(time.Now().Add(5 * time.Second))
-        mergedResp, err := rdr.ReadString('\n')
-        if err == nil {
-            var merged []PeerEntry
-            if err := json.Unmarshal([]byte(mergedResp), &merged); err == nil {
-                logger.Log("INFO", "tapsync", fmt.Sprintf("Got merged list (%d entries)", len(merged)))
-                savePeers(peerPath, merged)
-                return
-            }
-        }
+	payload, err := json.Marshal(localPeers)
+	if err != nil {
+		return err
+	}
+	payload = append(payload, '\n')
+	if _, err := stream.Write(payload); err != nil {
+		return err
+	}
 
-        // 5) Fallback: manual merge
-        final := mergePeers(peers, theirPeers)
-        savePeers(peerPath, final)
-        return
-    }
+	stream.SetReadDeadline(time.Now().Add(15 * time.Second))
+	resp, err := bufio.NewReader(stream).ReadString('\n')
+	if err != nil {
+		return err
+	}
 
-    logger.Log("WARN", "tapsync", "Could not connect to any peer.")
+	var remotePeers []PeerEntry
+	if err := json.Unmarshal([]byte(resp), &remotePeers); err != nil {
+		return err
+	}
+	logger.Log("DEBUG", "tapsync", fmt.Sprintf("Received %d peers from %s", len(remotePeers)-1, info.ID.ShortString()))
+
+	remotePeerID := info.ID.String()
+	remoteConnAddr := ""
+	if remote := stream.Conn().RemoteMultiaddr(); remote != nil {
+		remoteConnAddr = remote.String()
+	}
+	var remoteAddrs []string
+	if maddrs, err := peer.AddrInfoToP2pAddrs(&info); err == nil {
+		remoteAddrs = multiaddrStrings(maddrs)
+	}
+	ingestPeerEntries(remotePeers, remotePeerID, remoteConnAddr, remoteAddrs)
+	return nil
+}
+
+func syncWithKnownPeers(ctx context.Context) {
+	known := getKnownPeers()
+	if len(known) == 0 {
+		logger.Log("DEBUG", "tapsync", "No known peers to sync directly")
+		return
+	}
+
+	selfID := hostPeerID()
+	seen := make(map[string]struct{})
+
+	for _, peerEntry := range known {
+		if peerEntry.PeerID == "" || peerEntry.PeerID == selfID {
+			continue
+		}
+		if _, ok := seen[peerEntry.PeerID]; ok {
+			continue
+		}
+
+		infos := addrInfosFromEntry(peerEntry)
+		if len(infos) == 0 {
+			continue
+		}
+
+		seen[peerEntry.PeerID] = struct{}{}
+		for _, ai := range infos {
+			if err := connectAndExchange(ctx, *ai); err != nil {
+				logger.Log("DEBUG", "tapsync", fmt.Sprintf("Direct sync with %s failed: %v", ai.ID.ShortString(), err))
+			} else {
+				logger.Log("DEBUG", "tapsync", fmt.Sprintf("Direct sync with %s succeeded", ai.ID.ShortString()))
+			}
+		}
+	}
 }

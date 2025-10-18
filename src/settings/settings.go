@@ -146,6 +146,8 @@ network:
   listen_port: 51613
   enable_upnp: true
   bind_address: "0.0.0.0"
+  bootstrap_peers: []
+  discovery_namespace: "atsuko-nexus"
   peer_discovery_interval: 60
   max_peers: 100
   reconnect_attempts: 5
