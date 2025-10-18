@@ -9,6 +9,8 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
@@ -94,8 +96,14 @@ func RunUpdater() {
 		return
 	}
 
-	logger.Log("INFO", "updater", "Update applied successfully. Please restart the application manually.")
-	time.Sleep(3 * time.Second)
+	logger.Log("INFO", "updater", "Update applied successfully. Launching updated application...")
+	if err := relaunchUpdatedBinary(); err != nil {
+		logger.Log("ERROR", "updater", "Failed to launch updated binary: "+err.Error())
+		fmt.Println("Update applied, but failed to relaunch automatically:", err)
+	} else {
+		logger.Log("INFO", "updater", "Updated application started; exiting original process.")
+	}
+	time.Sleep(1 * time.Second)
 	os.Exit(0)
 }
 
@@ -257,4 +265,23 @@ func applyUpdate(tempBinary string) error {
 	}
 
 	return err
+}
+
+func relaunchUpdatedBinary() error {
+	binaryPath, err := os.Executable()
+	if err != nil {
+		return err
+	}
+
+	cmd := exec.Command(binaryPath, os.Args[1:]...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+	cmd.Env = os.Environ()
+	cmd.Dir = filepath.Dir(binaryPath)
+
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	return nil
 }
