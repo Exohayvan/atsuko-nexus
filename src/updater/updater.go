@@ -9,11 +9,11 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
 
 	"atsuko-nexus/src/logger"
@@ -273,15 +273,25 @@ func relaunchUpdatedBinary() error {
 		return err
 	}
 
-	cmd := exec.Command(binaryPath, os.Args[1:]...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
-	cmd.Env = os.Environ()
-	cmd.Dir = filepath.Dir(binaryPath)
+	args := os.Args
+	env := os.Environ()
 
-	if err := cmd.Start(); err != nil {
+	// On Unix-like systems, replace the current process image so the new binary
+	// inherits the same PID, stdio, and TTY without spawning an extra process.
+	if runtime.GOOS != "windows" {
+		return syscall.Exec(binaryPath, args, env)
+	}
+
+	// Windows does not support exec replacement; spawn a new process instead while
+	// preserving the existing console handles so the UI layout remains intact.
+	attr := &os.ProcAttr{
+		Dir:   filepath.Dir(binaryPath),
+		Env:   env,
+		Files: []*os.File{os.Stdin, os.Stdout, os.Stderr},
+	}
+	proc, err := os.StartProcess(binaryPath, args, attr)
+	if err != nil {
 		return err
 	}
-	return nil
+	return proc.Release()
 }
