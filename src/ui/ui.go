@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/bubbles/viewport"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/shirou/gopsutil/v3/cpu"
@@ -16,23 +16,32 @@ import (
 	"github.com/shirou/gopsutil/v3/net"
 
 	"atsuko-nexus/src/logger"
+	"atsuko-nexus/src/p2p"
 	"atsuko-nexus/src/settings"
 	"atsuko-nexus/src/version"
-	"atsuko-nexus/src/p2p"
 )
 
 var (
 	startTime     = time.Now() // Used to calculate uptime
-	nodeID        string // The Node ID shown in the UI
-	lastBytesSent uint64 // Used to track network upload delta
-	lastBytesRecv uint64 // Used to track network download delta
-	lastNetTime   time.Time // Last time network was sampled
+	nodeID        string       // The Node ID shown in the UI
+	lastBytesSent uint64       // Used to track network upload delta
+	lastBytesRecv uint64       // Used to track network download delta
+	lastNetTime   time.Time    // Last time network was sampled
 )
 
 // model defines the Bubble Tea view model with viewport support.
 type model struct {
 	viewport viewport.Model
 	ready    bool
+}
+
+func newModel() model {
+	vp := viewport.New(200, 37) // Leave space for header/status/help lines
+	vp.Style = lipgloss.NewStyle().Border(lipgloss.RoundedBorder())
+	return model{
+		viewport: vp,
+		ready:    false,
+	}
 }
 
 type tickMsg struct{}      // Message used to trigger log refresh
@@ -225,7 +234,12 @@ func Start(id string) {
 	}
 
 	logger.Log("INFO", "UI", "Launching TUI...")
-	p := tea.NewProgram(model{}, tea.WithAltScreen(), tea.WithMouseCellMotion())
+	fmt.Print("\033[8;40;200t")
+	p := tea.NewProgram(
+		newModel(),
+		tea.WithAltScreen(),
+		tea.WithMouseCellMotion(),
+	)
 	if _, err := p.Run(); err != nil {
 		logger.Log("ERROR", "UI", fmt.Sprintf("TUI crashed: %v", err))
 		panic(err)
