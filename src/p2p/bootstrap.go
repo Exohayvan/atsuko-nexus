@@ -233,7 +233,7 @@ func buildSelfPeerEntry() PeerEntry {
 		logger.Log("WARN", "p2p", "No public IPv4 detected from ipify")
 	}
 
-	ipv6 := fetchPublicIP("https://api64.ipify.org")
+	ipv6 := fetchPublicIPv6()
 	if ipv6 != "" {
 		entry.IPv6 = ipv6
 	} else {

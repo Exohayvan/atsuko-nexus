@@ -306,7 +306,7 @@ func preparePeerEntry(entry *PeerEntry) {
 			if entry.IPv4 == "" && ip4 != "" {
 				entry.IPv4 = ip4
 			}
-			if entry.IPv6 == "" && ip6 != "" {
+			if entry.IPv6 == "" && ip6 != "" && net.ParseIP(ip6) != nil && ip6 != "::1" {
 				entry.IPv6 = ip6
 			}
 			if entry.Port == 0 && port != 0 {
@@ -315,20 +315,80 @@ func preparePeerEntry(entry *PeerEntry) {
 		}
 	}
 
-	if entry.IPv6 == "" {
+	if entry.IPv6 == "" || net.ParseIP(entry.IPv6) == nil {
 		entry.IPv6 = "none"
 	}
 
+	entry.Multiaddrs = filterMultiaddrs(entry.Multiaddrs, entry.PeerID)
 	if len(entry.Multiaddrs) == 0 {
-		if entry.IPv4 != "" && entry.Port != 0 {
-			maddr := fmt.Sprintf("/ip4/%s/tcp/%d", entry.IPv4, entry.Port)
-			entry.Multiaddrs = mergeMultiaddrs(entry.Multiaddrs, []string{maddr})
+		if entry.IPv4 != "" && entry.Port != 0 && !isLoopbackIP(entry.IPv4) {
+			entry.Multiaddrs = append(entry.Multiaddrs, fmt.Sprintf("/ip4/%s/tcp/%d/p2p/%s", entry.IPv4, entry.Port, entry.PeerID))
 		}
 		if entry.IPv6 != "" && entry.IPv6 != "none" && entry.Port != 0 {
-			maddr := fmt.Sprintf("/ip6/%s/tcp/%d", entry.IPv6, entry.Port)
-			entry.Multiaddrs = mergeMultiaddrs(entry.Multiaddrs, []string{maddr})
+			entry.Multiaddrs = append(entry.Multiaddrs, fmt.Sprintf("/ip6/%s/tcp/%d/p2p/%s", entry.IPv6, entry.Port, entry.PeerID))
 		}
 	}
+}
+
+func filterMultiaddrs(addrs []string, peerID string) []string {
+	out := make([]string, 0, len(addrs))
+	for _, raw := range addrs {
+		addr := strings.TrimSpace(raw)
+		if addr == "" {
+			continue
+		}
+
+		maddr, err := ma.NewMultiaddr(addr)
+		if err != nil {
+			continue
+		}
+
+		if ip, err := maddr.ValueForProtocol(ma.P_IP4); err == nil {
+			if isLoopbackIP(ip) || isPrivateIP(ip) {
+				continue
+			}
+		}
+
+		if ip, err := maddr.ValueForProtocol(ma.P_IP6); err == nil {
+			parsed := net.ParseIP(ip)
+			if parsed == nil || parsed.To4() != nil {
+				continue
+			}
+		}
+
+		if peerID != "" && !strings.Contains(addr, "/p2p/") {
+			addr = fmt.Sprintf("%s/p2p/%s", strings.TrimRight(addr, "/"), peerID)
+		}
+		out = append(out, addr)
+	}
+	return out
+}
+
+func isLoopbackIP(ip string) bool {
+	parsed := net.ParseIP(ip)
+	return parsed != nil && parsed.IsLoopback()
+}
+
+func isPrivateIP(ip string) bool {
+	parsed := net.ParseIP(ip)
+	if parsed == nil {
+		return false
+	}
+	if parsed.IsLoopback() || parsed.IsLinkLocalMulticast() || parsed.IsLinkLocalUnicast() {
+		return true
+	}
+	privateCIDRs := []string{
+		"10.0.0.0/8",
+		"172.16.0.0/12",
+		"192.168.0.0/16",
+	}
+	for _, cidr := range privateCIDRs {
+		_, block, _ := net.ParseCIDR(cidr)
+		if block.Contains(parsed) {
+			return true
+		}
+	}
+	return false
 }
 
 func mergeMultiaddrs(base []string, extra []string) []string {
@@ -428,6 +488,25 @@ func fetchPublicIP(apiURL string) string {
 
 	ip := strings.TrimSpace(string(body))
 	if net.ParseIP(ip) == nil {
+		return ""
+	}
+	return ip
+}
+
+func fetchPublicIPv6() string {
+	client := http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Get("https://api64.ipify.org")
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return ""
+	}
+	ip := strings.TrimSpace(string(body))
+	parsed := net.ParseIP(ip)
+	if parsed == nil || parsed.To4() != nil {
 		return ""
 	}
 	return ip

@@ -1,7 +1,7 @@
 package p2p
 
 import (
-	"time"
+    "time"
 )
 
 // ingestPeerEntries normalizes incoming peer metadata before merging it into the cache.
